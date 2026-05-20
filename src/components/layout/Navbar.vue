@@ -2,7 +2,7 @@
   <div class="nav-wrap">
     <div class="container">
       <div class="nav-content">
-        <div class="brand" @click="$router.push('/')">
+        <div class="brand" @click="goHome">
           <div class="logo">
             <img src="/YAAI_logo_v1.0.svg" alt="云南人工智能学会" />
           </div>
@@ -13,45 +13,19 @@
         </div>
 
         <ul class="nav">
-          <li :class="{ active: isActive('/') }">
-            <router-link to="/">首页</router-link>
-          </li>
-          <li :class="{ active: isActive('/about') || isAboutActive() }">
-            <router-link to="/about/introduction">关于云智会</router-link>
-            <div class="dropdown">
-              <router-link to="/about/introduction">学会简介</router-link>
-              <router-link to="/about/charter">学会章程</router-link>
-              <router-link to="/about/regulations">条例与制度</router-link>
-              <router-link to="/about/leaders">主要领导</router-link>
-              <router-link to="/about/branches">分支机构</router-link>
-              <router-link to="/about/local">地方学会</router-link>
-            </div>
-          </li>
-          <li :class="{ active: isActive('/services') }">
-            <router-link to="/services">服务矩阵</router-link>
-            <div class="dropdown">
-              <router-link to="/services">会员服务</router-link>
-              <router-link to="/services">成果奖励</router-link>
-              <router-link to="/services">学术基金</router-link>
-              <router-link to="/services">出版物</router-link>
-              <router-link to="/services">算力平台</router-link>
-            </div>
-          </li>
-          <li :class="{ active: isActive('/news') || isNewsActive() }">
-            <router-link to="/news">新闻动态</router-link>
-            <div class="dropdown" v-if="newsDropdownItems.length">
+          <li
+            v-for="item in navItems"
+            :key="item.key"
+            :class="{ active: isNavItemActive(item) }"
+          >
+            <router-link :to="item.path">{{ item.name }}</router-link>
+            <div v-if="item.children?.length" class="dropdown">
               <router-link
-                v-for="item in newsDropdownItems"
-                :key="item.id"
-                :to="item.path"
-              >{{ item.name }}</router-link>
+                v-for="child in item.children"
+                :key="child.path"
+                :to="child.path"
+              >{{ child.name }}</router-link>
             </div>
-            <div class="dropdown" v-else>
-              <router-link to="/news">进入新闻动态</router-link>
-            </div>
-          </li>
-          <li :class="{ active: isActive('/conference') || isConferenceActive() }">
-            <router-link to="/conference">会议系统</router-link>
           </li>
         </ul>
 
@@ -71,28 +45,39 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
-import { useNewsCategoryStore } from '@/stores/newsCategory';
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useSiteMenusStore } from '@/stores/siteMenus'
+import { useSitePagesStore } from '@/stores/sitePages'
+import type { NavMenuItem } from '@/utils/sitePageNav'
+import { isPathUnderModule } from '@/utils/paths'
 
-const route = useRoute();
-const newsCategoryStore = useNewsCategoryStore();
+const route = useRoute()
+const router = useRouter()
+const siteMenusStore = useSiteMenusStore()
+const sitePagesStore = useSitePagesStore()
 
-const newsDropdownItems = computed(() => newsCategoryStore.menuItems);
+const navItems = computed(() => siteMenusStore.navItems)
 
-onMounted(() => {
-  void newsCategoryStore.ensureLoaded();
-});
+function goHome() {
+  const home = sitePagesStore.basePathByCode('home') ?? '/'
+  void router.push(home)
+}
 
-const isActive = (path: string) => route.path === path;
-const isConferenceActive = () => route.path.startsWith('/conference');
-const isAboutActive = () => route.path.startsWith('/about');
-const isNewsActive = () => route.path.startsWith('/news');
+function isNavItemActive(item: NavMenuItem): boolean {
+  if (item.code === 'conference') return route.path.startsWith('/conference')
+  if (item.code === 'services') return route.path === '/services'
+  if (item.pageId != null) {
+    const page = sitePagesStore.pageById(item.pageId)
+    if (page) return isPathUnderModule(route.path, page.path)
+  }
+  return isPathUnderModule(route.path, item.path)
+}
 </script>
 
 <style scoped>
 .nav-wrap {
-  background: #0f172a; /* 更纯净的暗色底，显高级 */
+  background: #0f172a;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   position: sticky;
   top: 0;
@@ -102,7 +87,7 @@ const isNewsActive = () => route.path.startsWith('/news');
 }
 
 .container {
-  max-width: 1440px; /* 增加最大宽度，减少两侧留白 */
+  max-width: 1440px;
   margin: 0 auto;
   padding: 0 40px;
 }
@@ -110,11 +95,10 @@ const isNewsActive = () => route.path.startsWith('/news');
 .nav-content {
   display: flex;
   align-items: center;
-  justify-content: space-between; /* 确保三块区域分布合理 */
+  justify-content: space-between;
   height: 80px;
 }
 
-/* 品牌 Logo */
 .brand {
   display: flex;
   align-items: center;
@@ -129,7 +113,7 @@ const isNewsActive = () => route.path.startsWith('/news');
 
 .titles h1 {
   margin: 0;
-  font-size: 20px; /* 进一步增大标题 */
+  font-size: 20px;
   color: #ffffff;
   font-weight: 700;
   letter-spacing: 1px;
@@ -137,14 +121,13 @@ const isNewsActive = () => route.path.startsWith('/news');
 
 .titles p {
   margin: -2px 0 0 0;
-  font-size: 13px; /* 增大 YNAI 字号 */
-  color: #3b82f6; 
-  letter-spacing: 2px; /* 增加字母间距 */
+  font-size: 13px;
+  color: #3b82f6;
+  letter-spacing: 2px;
   font-weight: 700;
   font-family: 'Arial', sans-serif;
 }
 
-/* 导航主列表 */
 .nav {
   display: flex;
   align-items: center;
@@ -152,8 +135,8 @@ const isNewsActive = () => route.path.startsWith('/news');
   margin: 0;
   padding: 0 20px;
   flex: 1;
-  justify-content: flex-start; /* 将导航项向中间偏右靠拢，平衡 Logo 的占据感 */
-  gap: 8px; 
+  justify-content: flex-start;
+  gap: 8px;
 }
 
 .nav > li {
@@ -164,10 +147,10 @@ const isNewsActive = () => route.path.startsWith('/news');
 }
 
 .nav > li > a {
-  padding: 8px 18px; /* 增加点击范围 */
+  padding: 8px 18px;
   color: rgba(255, 255, 255, 0.85);
   text-decoration: none;
-  font-size: 16px; /* 保持大字体 */
+  font-size: 16px;
   font-weight: 500;
   border-radius: 6px;
   transition: all 0.3s ease;
@@ -179,7 +162,6 @@ const isNewsActive = () => route.path.startsWith('/news');
   background: rgba(255, 255, 255, 0.05);
 }
 
-/* 选中项的状态 */
 .nav > li.active > a {
   color: #3b82f6;
   font-weight: 600;
@@ -196,7 +178,6 @@ const isNewsActive = () => route.path.startsWith('/news');
   box-shadow: 0 -1px 8px rgba(59, 130, 246, 0.5);
 }
 
-/* 下拉菜单 */
 .dropdown {
   visibility: hidden;
   opacity: 0;
@@ -235,7 +216,6 @@ const isNewsActive = () => route.path.startsWith('/news');
   padding-left: 25px;
 }
 
-/* 工具栏 */
 .nav-tools {
   display: flex;
   align-items: center;
@@ -276,7 +256,6 @@ const isNewsActive = () => route.path.startsWith('/news');
   font-weight: 600;
 }
 
-/* 适配 1200px 以下屏幕 */
 @media (max-width: 1280px) {
   .nav > li > a { font-size: 15px; padding: 8px 12px; }
   .nav { gap: 2px; }

@@ -1,13 +1,15 @@
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHistory } from 'vue-router'
 
+/**
+ * 固定路由：不走 GET /pages 的业务页（会员、登录、会议、服务等）。
+ *
+ * 站点「页面入口」（home / news / about / 后台 custom 页）在启动时由
+ * `useSitePagesStore().registerSiteRoutes(router)` 根据接口返回的 code 注册，
+ * 见 `src/router/builtinModuleRoutes.ts` 与 `src/stores/sitePages.ts`。
+ */
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    {
-      path: '/',
-      name: 'Home',
-      component: () => import('@/views/home/Index.vue')
-    },
     {
       path: '/services',
       name: 'Services',
@@ -40,49 +42,6 @@ const router = createRouter({
         }
       ]
     },
-
-    // 关于我们模块
-    {
-      path: '/about',
-      component: () => import('@/components/layout/SidebarLayout.vue'),
-      props: { groupKey: 'about' },
-      children: [
-        { path: 'introduction', name: 'AboutIntroduction', component: () => import('@/views/about/Introduction.vue') },
-        { path: 'charter', name: 'AboutCharter', component: () => import('@/views/about/Charter.vue') },
-        { path: 'regulations', name: 'AboutRegulations', component: () => import('@/views/about/Regulations.vue') },
-        { path: 'leaders', name: 'AboutLeaders', component: () => import('@/views/about/Leaders.vue') },
-        { path: 'branches', name: 'AboutBranches', component: () => import('@/views/about/Branches.vue') },
-        { path: 'local', name: 'AboutLocal', component: () => import('@/views/about/Local.vue') }
-      ]
-    },
-    // 新闻动态模块（侧栏菜单来自 /newsCategory；列表为 /news/c/:categoryId）
-    {
-      path: '/news',
-      component: () => import('@/components/layout/SidebarLayout.vue'),
-      props: { groupKey: 'news' },
-      children: [
-        { path: '', name: 'NewsIndex', component: () => import('@/views/news/NewsRedirect.vue') },
-        {
-          path: 'c/:categoryId(\\d+)',
-          name: 'NewsCategoryList',
-          component: () => import('@/views/news/CategoryList.vue')
-        },
-        { path: 'politics', redirect: '/news' },
-        { path: 'tech', redirect: '/news' },
-        { path: 'association', redirect: '/news' },
-        { path: 'notice', redirect: '/news' },
-        { path: 'events', redirect: '/news' },
-        { path: 'event', redirect: '/news' }
-      ]
-    },
-    {
-      path: '/news/article/:id',
-      redirect: (to) => {
-        const raw = to.params.id
-        const id = Array.isArray(raw) ? raw[0] : raw
-        return { path: `/content/${id ?? ''}` }
-      }
-    },
     {
       path: '/content/:id',
       name: 'ContentDetail',
@@ -108,6 +67,6 @@ const router = createRouter({
       component: () => import('@/views/user/Index.vue')
     }
   ]
-});
+})
 
-export default router;
+export default router

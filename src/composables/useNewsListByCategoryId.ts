@@ -14,9 +14,9 @@ function formatListDate(publishTime: string | null | undefined): string | undefi
 }
 
 /**
- * 按分类 ID 展示新闻列表：内部 `GET /news`（`categoryId` + `status=true`）
+ * 按菜单 id 展示新闻列表：内部 `GET /news/show-list`（`category_id` = 菜单 id）
  */
-export function useNewsListByCategoryId(categoryId: Ref<number>) {
+export function useNewsListByCategoryId(menuCategoryId: Ref<number>) {
   const rawList = ref<NewsItem[]>([])
 
   const items = computed<NewsListItem[]>(() =>
@@ -28,11 +28,11 @@ export function useNewsListByCategoryId(categoryId: Ref<number>) {
   )
 
   async function load() {
-    const id = categoryId.value
+    const id = menuCategoryId.value
     rawList.value = await fetchNewsListByCategoryId(id)
   }
 
-  watch(categoryId, load, { immediate: true })
+  watch(menuCategoryId, load, { immediate: true })
 
   return { items, rawList, load }
 }

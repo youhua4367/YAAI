@@ -19,8 +19,10 @@
           </div>
           <ul class="sidebar-menu">
             <li v-for="item in groupItems" :key="item.path">
-              <router-link 
-                :to="item.path" 
+              <router-link
+                :to="item.path"
+                active-class=""
+                exact-active-class=""
                 :class="{ active: isActive(item.path) }"
               >
                 <span class="menu-text">{{ item.name }}</span>
@@ -44,63 +46,53 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
-import { sidebarGroups } from '@/config/sidebar';
-import Breadcrumbs from '@/components/common/Breadcrumbs.vue';
-import { useNewsCategoryStore } from '@/stores/newsCategory';
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import Breadcrumbs from '@/components/common/Breadcrumbs.vue'
+import { useSiteMenusStore } from '@/stores/siteMenus'
+import { useSitePagesStore } from '@/stores/sitePages'
+import { isSameMenuPath } from '@/utils/menuPath'
 
 const props = defineProps<{
-  groupKey: string
-}>();
+  pageId: number
+}>()
 
-const route = useRoute();
-const newsCategoryStore = useNewsCategoryStore();
+const route = useRoute()
+const siteMenusStore = useSiteMenusStore()
+const sitePagesStore = useSitePagesStore()
 
-const groupData = computed(() => {
-  return sidebarGroups[props.groupKey] || { title: '', items: [] };
-});
+const sidebarItems = ref<{ name: string; path: string }[]>([])
 
-const groupTitle = computed(() => {
-  return groupData.value.title;
-});
+const page = computed(() => sitePagesStore.pageById(props.pageId))
 
-/** 新闻动态侧栏由后端分类驱动，其余模块用静态配置 */
-const newsSidebarItems = ref<{ name: string; path: string }[]>([]);
+const groupTitle = computed(() => page.value?.name ?? '栏目')
 
-async function refreshNewsSidebar() {
-  if (props.groupKey !== 'news') return;
-  await newsCategoryStore.ensureLoaded();
-  newsSidebarItems.value = newsCategoryStore.menuItems.map(({ name, path }) => ({ name, path }));
+async function refreshSidebar() {
+  await siteMenusStore.ensureLoaded()
+  sidebarItems.value = siteMenusStore.sidebarItemsForPage(props.pageId)
 }
 
 onMounted(() => {
-  void refreshNewsSidebar();
-});
+  void refreshSidebar()
+})
 
 watch(
-  () => props.groupKey,
+  () => props.pageId,
   () => {
-    void refreshNewsSidebar();
+    void refreshSidebar()
   }
-);
+)
 
-const groupItems = computed(() => {
-  if (props.groupKey === 'news' && newsSidebarItems.value.length > 0) {
-    return newsSidebarItems.value;
-  }
-  return groupData.value.items;
-});
+const groupItems = computed(() => sidebarItems.value)
 
-const activeItem = computed(() => {
-  return groupItems.value.find(item => route.path.startsWith(item.path));
-});
+const activeItem = computed(() =>
+  groupItems.value.find((item) => isActive(item.path))
+)
 
-const isActiveItemExact = computed(() => {
-  return activeItem.value ? route.path === activeItem.value.path : false;
-});
-
-const isActive = (path: string) => route.path.startsWith(path);
+/** 含 query 的完整路径精确匹配（避免多个 /news?category= 同时高亮） */
+function isActive(menuPath: string): boolean {
+  return isSameMenuPath(route.fullPath, menuPath)
+}
 </script>
 
 <style scoped>

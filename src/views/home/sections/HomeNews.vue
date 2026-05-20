@@ -1,83 +1,83 @@
 <template>
   <div class="news-container">
-    <div class="card news-sub-card">
+    <div
+      v-for="(panel, index) in panels"
+      :key="panel.key"
+      class="card news-sub-card"
+      :class="{ 'second-card': index === 1 }"
+    >
       <div class="card-header">
         <div class="header-main">
           <span class="title-icon blue"></span>
-          <h3>新闻公告</h3>
+          <h3>{{ panel.title }}</h3>
         </div>
-        <router-link :to="noticeMorePath" class="more-link">更多</router-link>
+        <router-link :to="panel.morePath" class="more-link">更多</router-link>
       </div>
-      <ul class="fancy-list" v-if="noticeItems.length">
-        <li v-for="item in noticeItems" :key="item.id">
+      <ul v-if="panel.items.length" class="fancy-list">
+        <li v-for="item in panel.items" :key="item.id">
           <router-link :to="contentPath(item.id)" class="list-content">
             <span class="title-text">{{ item.title }}</span>
             <span class="date-tag">{{ listDateShort(item.publishTime) }}</span>
           </router-link>
         </li>
       </ul>
-      <div v-else class="empty-state">暂无新闻公告</div>
-    </div>
-
-    <div class="card news-sub-card second-card">
-      <div class="card-header">
-        <div class="header-main">
-          <span class="title-icon blue"></span>
-          <h3>学会新闻</h3>
-        </div>
-        <router-link :to="societyMorePath" class="more-link">更多</router-link>
-      </div>
-      <ul class="fancy-list" v-if="societyItems.length">
-        <li v-for="item in societyItems" :key="item.id">
-          <router-link :to="contentPath(item.id)" class="list-content">
-            <span class="title-text">{{ item.title }}</span>
-            <span class="date-tag">{{ listDateShort(item.publishTime) }}</span>
-          </router-link>
-        </li>
-      </ul>
-      <div v-else class="empty-state">暂无学会新闻</div>
+      <div v-else class="empty-state">暂无{{ panel.title }}</div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import type { NewsItem } from '@/types/news'
 import { fetchNewsListByCategoryId } from '@/api/news'
-import { useNewsCategoryStore } from '@/stores/newsCategory'
+import { useSiteMenusStore } from '@/stores/siteMenus'
+import { useSitePagesStore } from '@/stores/sitePages'
+import { useSitePaths } from '@/composables/useSitePaths'
 import { contentPath } from '@/utils/contentRoute'
+import { resolveMenuPath } from '@/utils/menuPath'
 
-const categoryStore = useNewsCategoryStore()
+const HOME_PANEL_COUNT = 2
+const LIST_LIMIT = 10
 
-const noticeItems = ref<NewsItem[]>([])
-const societyItems = ref<NewsItem[]>([])
+export interface HomeNewsPanel {
+  key: string
+  title: string
+  morePath: string
+  items: NewsItem[]
+}
 
-// 与后台 news_category.code 对应（通知公告 / 学会新闻）
-const noticeMorePath = computed(() => {
-  const id = categoryStore.categoryIdByCode('notice_category')
-  return id != null ? `/news/c/${id}` : '/news'
-})
+const siteMenusStore = useSiteMenusStore()
+const sitePagesStore = useSitePagesStore()
+const { newsListPath } = useSitePaths()
 
-const societyMorePath = computed(() => {
-  const id = categoryStore.categoryIdByCode('news_category_xhxw')
-  return id != null ? `/news/c/${id}` : '/news'
-})
+const panels = ref<HomeNewsPanel[]>([])
 
 function listDateShort(publishTime: string | null | undefined): string {
   if (!publishTime || publishTime.length < 10) return ''
   return publishTime.substring(5)
 }
 
-onMounted(async () => {
-  await categoryStore.ensureLoaded()
-  const noticeId = categoryStore.categoryIdByCode('notice_category')
-  const societyId = categoryStore.categoryIdByCode('news_category_xhxw')
-  const [noticeList, societyList] = await Promise.all([
-    noticeId != null ? fetchNewsListByCategoryId(noticeId) : Promise.resolve([]),
-    societyId != null ? fetchNewsListByCategoryId(societyId) : Promise.resolve([])
-  ])
-  noticeItems.value = noticeList.slice(0, 10)
-  societyItems.value = societyList.slice(0, 10)
+async function loadPanels() {
+  await siteMenusStore.ensureLoaded()
+  const pages = sitePagesStore.enabledPages
+  const submenus = siteMenusStore.pickHomeNewsSubmenus(HOME_PANEL_COUNT)
+  const fallbackMore = newsListPath() || '/'
+
+  panels.value = await Promise.all(
+    submenus.map(async (menu) => {
+      const list = await fetchNewsListByCategoryId(menu.id)
+      return {
+        key: `menu-${menu.id}`,
+        title: menu.name,
+        morePath: resolveMenuPath(menu, pages) || fallbackMore,
+        items: list.slice(0, LIST_LIMIT)
+      }
+    })
+  )
+}
+
+onMounted(() => {
+  void loadPanels()
 })
 </script>
 
@@ -92,7 +92,7 @@ onMounted(async () => {
   background: #fff;
   border-radius: 10px;
   border: 1px solid #eef2f7;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.03);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
   transition: all 0.3s ease;
 }
 
@@ -122,7 +122,9 @@ onMounted(async () => {
   height: 16px;
   border-radius: 2px;
 }
-.title-icon.blue { background: #0c4da2; }
+.title-icon.blue {
+  background: #0c4da2;
+}
 
 .more-link {
   font-size: 13px;

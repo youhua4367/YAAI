@@ -12,6 +12,9 @@ node_modules
 # 本地其它工程目录，不纳入本仓库
 code/
 
+# 接口/低代码文档，仅本地维护
+doc/
+
 # 环境变量（勿提交密钥；本地复制 .env.example）
 .env
 .env.*

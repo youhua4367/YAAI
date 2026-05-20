@@ -11,11 +11,11 @@
         <h3>快速入口</h3>
       </div>
     </div>
-    
+
     <div class="links-container">
-      <router-link 
-        v-for="(link, index) in quickLinks" 
-        :key="index"
+      <router-link
+        v-for="(link, index) in quickLinks"
+        :key="link.key"
         :to="link.url"
         class="link-item"
         :style="{ animationDelay: `${index * 0.08}s` }"
@@ -41,15 +41,72 @@
 </template>
 
 <script setup lang="ts">
-/** 与主导航、顶栏一致的可访问路由（无独立页面的入口已去掉） */
-const quickLinks = [
-  { icon: '新', text: '新闻动态', url: '/news' },
-  { icon: '议', text: '会议系统', url: '/conference' },
-  { icon: '务', text: '服务矩阵', url: '/services' },
-  { icon: '介', text: '关于云智会', url: '/about/introduction' },
-  { icon: '注', text: '会员注册', url: '/apply' },
-  { icon: '录', text: '会员登录', url: '/login' }
+import { computed } from 'vue'
+import { useSiteMenusStore } from '@/stores/siteMenus'
+import { useSitePagesStore } from '@/stores/sitePages'
+import type { SitePage } from '@/types/sitePage'
+
+/** 固定入口：始终排在最后，与 Header 会员入口一致 */
+const STATIC_QUICK_LINKS: QuickLinkItem[] = [
+  { key: 'static-register', icon: '注', text: '会员注册', url: '/apply' },
+  { key: 'static-login', icon: '录', text: '会员登录', url: '/login' }
 ]
+
+const CUSTOM_SLOT_COUNT = 2
+
+export interface QuickLinkItem {
+  key: string
+  icon: string
+  text: string
+  url: string
+}
+
+function iconCharFromName(name: string): string {
+  const t = name.trim()
+  return t ? t.charAt(0) : '·'
+}
+
+function findNewsPage(pages: SitePage[]): SitePage | undefined {
+  return pages.find((p) => p.code === 'news') ?? pages.find((p) => p.pageType === 'channel')
+}
+
+function findAboutPage(pages: SitePage[]): SitePage | undefined {
+  return pages.find((p) => p.code === 'about') ?? pages.find((p) => p.pageType === 'single')
+}
+
+const sitePagesStore = useSitePagesStore()
+const siteMenusStore = useSiteMenusStore()
+
+function pageToQuickLink(page: SitePage, pages: SitePage[]): QuickLinkItem {
+  return {
+    key: `page-${page.id}`,
+    icon: iconCharFromName(page.name),
+    text: page.name,
+    url: siteMenusStore.navLinkForPage(page, pages)
+  }
+}
+
+const quickLinks = computed<QuickLinkItem[]>(() => {
+  const pages = sitePagesStore.enabledPages
+  const newsPage = findNewsPage(pages)
+  const aboutPage = findAboutPage(pages)
+  const reservedIds = new Set(
+    [newsPage?.id, aboutPage?.id].filter((id): id is number => id != null)
+  )
+
+  const customPages = pages
+    .filter((p) => p.code !== 'home' && !reservedIds.has(p.id))
+    .slice(0, CUSTOM_SLOT_COUNT)
+
+  const result: QuickLinkItem[] = []
+  if (newsPage) result.push(pageToQuickLink(newsPage, pages))
+  if (aboutPage) result.push(pageToQuickLink(aboutPage, pages))
+  for (const page of customPages) {
+    result.push(pageToQuickLink(page, pages))
+  }
+  result.push(...STATIC_QUICK_LINKS)
+  return result
+})
 </script>
 
 <style scoped>
@@ -57,7 +114,7 @@ const quickLinks = [
   height: 100%;
   background: rgba(255, 255, 255, 0.95);
   border-radius: 16px;
-  box-shadow: 
+  box-shadow:
     0 4px 30px rgba(0, 0, 0, 0.08),
     0 1px 3px rgba(0, 0, 0, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.5);
@@ -68,12 +125,11 @@ const quickLinks = [
 
 .quick-links-card:hover {
   transform: translateY(-5px);
-  box-shadow: 
+  box-shadow:
     0 20px 60px rgba(0, 0, 0, 0.12),
     0 0 30px rgba(12, 77, 162, 0.08);
 }
 
-/* 头部样式 */
 .card-header {
   padding: 24px;
   border-bottom: 1px solid rgba(226, 232, 240, 0.6);
@@ -108,7 +164,6 @@ const quickLinks = [
   color: #1e293b;
 }
 
-/* 链接容器 */
 .links-container {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -117,7 +172,6 @@ const quickLinks = [
   padding: 1px;
 }
 
-/* 链接项 */
 .link-item {
   position: relative;
   background: white;
@@ -160,7 +214,6 @@ const quickLinks = [
   z-index: 2;
 }
 
-/* 图标包装器 */
 .icon-wrapper {
   position: relative;
   width: 64px;
@@ -215,7 +268,6 @@ const quickLinks = [
   transform: scale(1.5);
 }
 
-/* 链接文字 */
 .link-text {
   font-size: 14px;
   font-weight: 500;
@@ -228,7 +280,6 @@ const quickLinks = [
   transform: translateY(-2px);
 }
 
-/* 箭头 */
 .link-arrow {
   position: absolute;
   bottom: 12px;
@@ -255,7 +306,6 @@ const quickLinks = [
   color: #0c4da2;
 }
 
-/* 响应式 */
 @media (max-width: 768px) {
   .links-container {
     grid-template-columns: repeat(2, 1fr);

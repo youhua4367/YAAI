@@ -11,7 +11,7 @@
           <span class="divider">|</span>
           <router-link to="/user">会员中心</router-link>
           <span class="divider">|</span>
-          <router-link to="/about/introduction">联系我们</router-link>
+          <router-link :to="aboutIntroductionPath">联系我们</router-link>
         </div>
         <div class="topbar-right">
           <span>欢迎访问云南人工智能学会官网</span>
@@ -22,6 +22,9 @@
 </template>
 
 <script setup lang="ts">
+import { useSitePaths } from '@/composables/useSitePaths'
+
+const { aboutIntroductionPath } = useSitePaths()
 </script>
 
 <style scoped>

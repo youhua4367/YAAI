@@ -24,3 +24,33 @@ export function getActiveBanners(groupCode: string): Promise<Result<Banner[]>> {
 export function getBannerById(id: number): Promise<Result<Banner>> {
   return request.get(`/banners/${id}`)
 }
+
+function sortBanners(list: Banner[]): Banner[] {
+  return [...list].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+}
+
+/** 首页轮播：优先生效列表，否则回退 `GET /banners` */
+export async function fetchHomeBanners(): Promise<Banner[]> {
+  try {
+    const active = await getActiveBanners(HOME_BANNER_GROUP_CODE)
+    if (active.success && active.data?.length) {
+      return sortBanners(active.data)
+    }
+  } catch {
+    /* 回退列表接口 */
+  }
+
+  try {
+    const res = await getBanners({
+      groupCode: HOME_BANNER_GROUP_CODE,
+      status: true
+    })
+    if (res.success && res.data?.items?.length) {
+      return sortBanners(res.data.items)
+    }
+  } catch {
+    /* ignore */
+  }
+
+  return []
+}

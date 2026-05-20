@@ -1,12 +1,11 @@
 <template>
-  <div class="carousel-container">
-    <!-- 3D轮播轨道 -->
+  <div v-if="slides.length" class="carousel-container">
     <div class="carousel-3d">
-      <article 
-        v-for="(slide, index) in slides" 
-        :key="index"
+      <article
+        v-for="(slide, index) in slides"
+        :key="slide.id"
         class="slide"
-        :class="{ 
+        :class="{
           active: index === activeSlide,
           prev: index === getPrevIndex(),
           next: index === getNextIndex()
@@ -15,27 +14,37 @@
         @click="setActiveSlide(index)"
       >
         <div class="slide-inner">
-          <div class="slide-bg" :style="{ backgroundImage: `url(${slide.image})` }"></div>
+          <div class="slide-bg" :style="{ backgroundImage: slide.image ? `url(${slide.image})` : undefined }" />
           <div class="slide-shine"></div>
-          
+
           <div class="slide-overlay">
             <div class="slide-content">
-              <span class="slide-badge" :class="{ 'badge-in': index === activeSlide }">
+              <span
+                v-if="slide.badge"
+                class="slide-badge"
+                :class="{ 'badge-in': index === activeSlide }"
+              >
                 <span class="badge-text">{{ slide.badge }}</span>
                 <span class="badge-glow"></span>
               </span>
               <h2 class="slide-title" :class="{ 'title-in': index === activeSlide }">
                 {{ slide.title }}
               </h2>
-              <p class="slide-desc" :class="{ 'desc-in': index === activeSlide }">
+              <p v-if="slide.description" class="slide-desc" :class="{ 'desc-in': index === activeSlide }">
                 {{ slide.description }}
               </p>
-              <div class="slide-action" :class="{ 'action-in': index === activeSlide }">
-                <button class="learn-more">
+              <div v-if="slide.linkUrl" class="slide-action" :class="{ 'action-in': index === activeSlide }">
+                <component
+                  :is="slide.linkExternal ? 'a' : 'router-link'"
+                  class="learn-more"
+                  :href="slide.linkExternal ? slide.linkUrl : undefined"
+                  :to="slide.linkExternal ? undefined : slide.linkUrl"
+                  @click.stop
+                >
                   <span class="btn-text">了解详情</span>
                   <span class="btn-icon">→</span>
                   <span class="btn-shine"></span>
-                </button>
+                </component>
               </div>
             </div>
           </div>
@@ -43,118 +52,136 @@
       </article>
     </div>
 
-    <!-- 进度指示器 -->
-    <div class="progress-indicator">
-      <div 
-        v-for="(slide, index) in slides" 
-        :key="index"
+    <div v-if="slides.length > 1" class="progress-indicator">
+      <div
+        v-for="(slide, index) in slides"
+        :key="slide.id"
         class="progress-item"
         :class="{ active: index === activeSlide }"
         @click="setActiveSlide(index)"
       >
         <div class="progress-bg"></div>
-        <div class="progress-fill" :style="{ width: index === activeSlide ? progressWidth + '%' : '0%' }"></div>
+        <div
+          class="progress-fill"
+          :style="{ width: index === activeSlide ? progressWidth + '%' : '0%' }"
+        />
         <span class="progress-num">0{{ index + 1 }}</span>
       </div>
     </div>
 
-    <!-- 装饰元素 -->
     <div class="decor-line"></div>
     <div class="decor-circle"></div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue'
+import { fetchHomeBanners } from '@/api/banner'
+import type { Banner } from '@/types/banner'
+import { resolvePublicAssetUrl } from '@/utils/siteConfigFormat'
 
-const activeSlide = ref(0);
-const progressWidth = ref(0);
-let interval: number | null = null;
-let progressInterval: number | null = null;
-const slideDuration = 6000;
+const slideDuration = 6000
 
-const slides = [
-  {
-    image: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1600&q=80',
-    badge: '年度重点活动',
-    title: '云南人工智能创新大会暨产业对接周正式启动',
-    description: '围绕大模型、智能制造、智慧政务、低空经济与具身智能等方向，建设面向云南的学术交流与成果转化平台。'
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=1600&q=80',
-    badge: '学会新闻',
-    title: '云智会与省内高校、园区及企业签署协同创新合作计划',
-    description: '围绕科研基金、场景开放、竞赛培训和技术服务，推动区域人工智能创新共同体建设。'
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1526379095098-d400fd0bf935?auto=format&fit=crop&w=1600&q=80',
-    badge: '品牌项目',
-    title: '“云智讲堂”第十二期开讲：面向边疆场景的多模态智能系统',
-    description: '邀请高校学者、产业专家与青年研究人员，聚焦边缘智能、遥感分析与多语种应用。'
+interface CarouselSlide {
+  id: number
+  image: string
+  badge: string
+  title: string
+  description: string
+  linkUrl: string
+  linkExternal: boolean
+}
+
+const slides = ref<CarouselSlide[]>([])
+const activeSlide = ref(0)
+const progressWidth = ref(0)
+let interval: number | null = null
+let progressInterval: number | null = null
+
+function mapBanner(banner: Banner): CarouselSlide {
+  const linkUrl = banner.linkUrl?.trim() || ''
+  return {
+    id: banner.id,
+    image: resolvePublicAssetUrl(banner.imageUrl),
+    badge: '',
+    title: banner.title?.trim() || '',
+    description: banner.subtitle?.trim() || '',
+    linkUrl,
+    linkExternal: /^https?:\/\//i.test(linkUrl)
   }
-];
+}
 
-const getPrevIndex = () => (activeSlide.value - 1 + slides.length) % slides.length;
-const getNextIndex = () => (activeSlide.value + 1) % slides.length;
+const getPrevIndex = () =>
+  slides.value.length
+    ? (activeSlide.value - 1 + slides.value.length) % slides.value.length
+    : 0
+const getNextIndex = () =>
+  slides.value.length ? (activeSlide.value + 1) % slides.value.length : 0
 
 const getSlideStyle = (index: number) => {
-  const diff = index - activeSlide.value;
-  const normalizedDiff = ((diff + slides.length) % slides.length);
-  
+  const len = slides.value.length
+  if (!len) return {}
+  const diff = index - activeSlide.value
+  const normalizedDiff = (diff + len) % len
+
   if (normalizedDiff === 0) {
     return {
       transform: 'translateX(0) scale(1) rotateY(0deg)',
       zIndex: 3,
       opacity: 1
-    };
-  } else if (normalizedDiff === 1 || normalizedDiff === -2) {
+    }
+  }
+  if (normalizedDiff === 1 || normalizedDiff === -2) {
     return {
       transform: 'translateX(60%) scale(0.85) rotateY(-15deg)',
       zIndex: 2,
       opacity: 0.6
-    };
-  } else {
-    return {
-      transform: 'translateX(-60%) scale(0.85) rotateY(15deg)',
-      zIndex: 2,
-      opacity: 0.6
-    };
+    }
   }
-};
+  return {
+    transform: 'translateX(-60%) scale(0.85) rotateY(15deg)',
+    zIndex: 2,
+    opacity: 0.6
+  }
+}
 
 const setActiveSlide = (index: number) => {
-  activeSlide.value = index;
-  startTimer();
-};
+  activeSlide.value = index
+  startTimer()
+}
 
 const startTimer = () => {
-  if (interval) clearInterval(interval);
-  if (progressInterval) clearInterval(progressInterval);
-  
-  progressWidth.value = 0;
-  const step = 100 / (slideDuration / 50);
-  
-  progressInterval = window.setInterval(() => {
-    progressWidth.value += step;
-    if (progressWidth.value >= 100) {
-      progressWidth.value = 0;
-    }
-  }, 50);
-  
-  interval = window.setInterval(() => {
-    activeSlide.value = (activeSlide.value + 1) % slides.length;
-    progressWidth.value = 0;
-  }, slideDuration);
-};
+  if (interval) clearInterval(interval)
+  if (progressInterval) clearInterval(progressInterval)
+  if (slides.value.length <= 1) return
 
-onMounted(() => {
-  startTimer();
-});
+  progressWidth.value = 0
+  const step = 100 / (slideDuration / 50)
+
+  progressInterval = window.setInterval(() => {
+    progressWidth.value += step
+    if (progressWidth.value >= 100) {
+      progressWidth.value = 0
+    }
+  }, 50)
+
+  interval = window.setInterval(() => {
+    activeSlide.value = (activeSlide.value + 1) % slides.value.length
+    progressWidth.value = 0
+  }, slideDuration)
+}
+
+onMounted(async () => {
+  const banners = await fetchHomeBanners()
+  slides.value = banners.map(mapBanner).filter((s) => s.title || s.image)
+  activeSlide.value = 0
+  startTimer()
+})
 
 onUnmounted(() => {
-  if (interval) clearInterval(interval);
-  if (progressInterval) clearInterval(progressInterval);
-});
+  if (interval) clearInterval(interval)
+  if (progressInterval) clearInterval(progressInterval)
+})
 </script>
 
 <style scoped>
@@ -165,7 +192,6 @@ onUnmounted(() => {
   overflow: visible;
 }
 
-/* 3D轮播轨道 */
 .carousel-3d {
   position: relative;
   width: 100%;
@@ -192,10 +218,10 @@ onUnmounted(() => {
   box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
 }
 
-/* 背景图 */
 .slide-bg {
   position: absolute;
   inset: 0;
+  background-color: #1e293b;
   background-size: cover;
   background-position: center;
   transition: transform 8s ease-out;
@@ -205,7 +231,6 @@ onUnmounted(() => {
   transform: scale(1.1);
 }
 
-/* 光泽效果 */
 .slide-shine {
   position: absolute;
   inset: 0;
@@ -226,11 +251,15 @@ onUnmounted(() => {
 }
 
 @keyframes shine {
-  0% { transform: translateX(-100%); }
-  50%, 100% { transform: translateX(100%); }
+  0% {
+    transform: translateX(-100%);
+  }
+  50%,
+  100% {
+    transform: translateX(100%);
+  }
 }
 
-/* 渐变遮罩 */
 .slide-overlay {
   position: absolute;
   inset: 0;
@@ -250,7 +279,6 @@ onUnmounted(() => {
   color: white;
 }
 
-/* 徽章动画 */
 .slide-badge {
   display: inline-flex;
   align-items: center;
@@ -260,7 +288,6 @@ onUnmounted(() => {
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 1px;
-  text-transform: uppercase;
   margin-bottom: 24px;
   position: relative;
   overflow: hidden;
@@ -277,7 +304,7 @@ onUnmounted(() => {
 .badge-glow {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
   transform: translateX(-100%);
 }
 
@@ -286,11 +313,15 @@ onUnmounted(() => {
 }
 
 @keyframes badgeGlow {
-  0%, 100% { transform: translateX(-100%); }
-  50% { transform: translateX(100%); }
+  0%,
+  100% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(100%);
+  }
 }
 
-/* 标题动画 */
 .slide-title {
   font-size: 36px;
   font-weight: 700;
@@ -310,7 +341,6 @@ onUnmounted(() => {
   transform: translateY(0);
 }
 
-/* 描述动画 */
 .slide-desc {
   font-size: 16px;
   line-height: 1.8;
@@ -326,7 +356,6 @@ onUnmounted(() => {
   transform: translateY(0);
 }
 
-/* 按钮动画 */
 .slide-action {
   opacity: 0;
   transform: translateY(30px);
@@ -354,6 +383,7 @@ onUnmounted(() => {
   overflow: hidden;
   transition: all 0.4s ease;
   box-shadow: 0 10px 30px rgba(230, 57, 70, 0.4);
+  text-decoration: none;
 }
 
 .learn-more:hover {
@@ -372,7 +402,7 @@ onUnmounted(() => {
 .btn-shine {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
   transform: translateX(-100%);
 }
 
@@ -381,10 +411,11 @@ onUnmounted(() => {
 }
 
 @keyframes btnShine {
-  to { transform: translateX(100%); }
+  to {
+    transform: translateX(100%);
+  }
 }
 
-/* 进度指示器 */
 .progress-indicator {
   position: absolute;
   bottom: 40px;
@@ -432,7 +463,6 @@ onUnmounted(() => {
   color: #3b82f6;
 }
 
-/* 装饰元素 */
 .decor-line {
   position: absolute;
   top: 50%;
@@ -464,16 +494,26 @@ onUnmounted(() => {
 }
 
 @keyframes decorFloat {
-  0%, 100% { transform: rotate(-45deg) translateX(0); opacity: 0.5; }
-  50% { transform: rotate(-45deg) translateX(30px); opacity: 1; }
+  0%,
+  100% {
+    transform: rotate(-45deg) translateX(0);
+    opacity: 0.5;
+  }
+  50% {
+    transform: rotate(-45deg) translateX(30px);
+    opacity: 1;
+  }
 }
 
 @keyframes decorRotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-/* 响应式 */
 @media (max-width: 1024px) {
   .carousel-container {
     height: 450px;
@@ -517,11 +557,7 @@ onUnmounted(() => {
 
   .slide-overlay {
     padding: 0 24px;
-    background: linear-gradient(
-      180deg,
-      transparent 0%,
-      rgba(15, 23, 42, 0.9) 50%
-    );
+    background: linear-gradient(180deg, transparent 0%, rgba(15, 23, 42, 0.9) 50%);
     align-items: flex-end;
     padding-bottom: 100px;
   }

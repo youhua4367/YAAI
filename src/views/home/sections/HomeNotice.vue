@@ -38,7 +38,7 @@
           </router-link>
         </li>
       </ul>
-      <p v-else class="notice-empty">暂无通知公告</p>
+      <p v-else class="notice-empty">暂无新闻</p>
     </div>
     
     <!-- 装饰线条 -->
@@ -48,19 +48,18 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { fetchNewsListByCategoryId } from '@/api/news'
+import { fetchLatestNews } from '@/api/news'
 import { contentPath } from '@/utils/contentRoute'
-import { useNewsCategoryStore } from '@/stores/newsCategory'
+import { useSitePaths } from '@/composables/useSitePaths'
 import type { NewsItem } from '@/types/news'
 
-const categoryStore = useNewsCategoryStore()
+const NOTICE_COUNT = 5
+
+const { newsListPath } = useSitePaths()
 
 const notices = ref<{ title: string; date: string; link: string }[]>([])
 
-const noticeMorePath = computed(() => {
-  const id = categoryStore.categoryIdByCode('notice_category')
-  return id != null ? `/news/c/${id}` : '/news'
-})
+const noticeMorePath = computed(() => newsListPath() || '/')
 
 function listDateYmd(publishTime: string | null | undefined): string {
   if (!publishTime || publishTime.length < 10) return ''
@@ -73,16 +72,25 @@ function dateParts(ymd: string): { day: string; month: string } {
   return { day: m[3].replace(/^0/, '') || m[3], month: `${Number(m[2])}月` }
 }
 
-onMounted(async () => {
-  await categoryStore.ensureLoaded()
-  const noticeId = categoryStore.categoryIdByCode('notice_category')
-  if (noticeId == null) return
-  const list: NewsItem[] = await fetchNewsListByCategoryId(noticeId)
-  notices.value = list.slice(0, 5).map((item) => ({
+function displayDateYmd(item: NewsItem): string {
+  const raw =
+    item.updatedAt ??
+    (item as NewsItem & { updateAt?: string | null }).updateAt ??
+    item.publishTime
+  return listDateYmd(raw ?? undefined) || '—'
+}
+
+function mapNewsToNotices(list: NewsItem[]) {
+  notices.value = list.map((item) => ({
     title: item.title,
-    date: listDateYmd(item.publishTime ?? undefined) || '—',
+    date: displayDateYmd(item),
     link: contentPath(item.id)
   }))
+}
+
+onMounted(async () => {
+  const list = await fetchLatestNews(NOTICE_COUNT)
+  mapNewsToNotices(list)
 })
 </script>
 
