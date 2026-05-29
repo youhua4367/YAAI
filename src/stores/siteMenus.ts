@@ -15,28 +15,6 @@ function sortMenus(list: SiteMenu[]): SiteMenu[] {
 /** 参与顶栏的页面类型（与 GET /pages 一致） */
 const NAV_PAGE_TYPES = new Set(['portal', 'channel', 'single', 'custom'])
 
-const STATIC_NAV_EXTRAS: NavMenuItem[] = [
-  {
-    key: 'services',
-    name: '服务矩阵',
-    path: '/services',
-    code: 'services',
-    children: [
-      { name: '会员服务', path: '/services' },
-      { name: '成果奖励', path: '/services' },
-      { name: '学术基金', path: '/services' },
-      { name: '出版物', path: '/services' },
-      { name: '算力平台', path: '/services' }
-    ]
-  },
-  {
-    key: 'conference',
-    name: '会议系统',
-    path: '/conference',
-    code: 'conference'
-  }
-]
-
 export const useSiteMenusStore = defineStore('siteMenus', () => {
   const menus = ref<SiteMenu[]>([])
   const loaded = ref(false)
@@ -183,7 +161,7 @@ export const useSiteMenusStore = defineStore('siteMenus', () => {
     })
   })
 
-  const navItems = computed<NavMenuItem[]>(() => [...topNavItems.value, ...STATIC_NAV_EXTRAS])
+  const navItems = computed<NavMenuItem[]>(() => topNavItems.value)
 
   function isMenuActive(menu: SiteMenu, routePath: string): boolean {
     const sitePages = useSitePagesStore()

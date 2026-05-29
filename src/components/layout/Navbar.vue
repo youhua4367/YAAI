@@ -65,8 +65,6 @@ function goHome() {
 }
 
 function isNavItemActive(item: NavMenuItem): boolean {
-  if (item.code === 'conference') return route.path.startsWith('/conference')
-  if (item.code === 'services') return route.path === '/services'
   if (item.pageId != null) {
     const page = sitePagesStore.pageById(item.pageId)
     if (page) return isPathUnderModule(route.path, page.path)

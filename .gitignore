@@ -12,8 +12,8 @@ node_modules
 # 本地其它工程目录，不纳入本仓库
 code/
 
-# 接口/低代码文档，仅本地维护
-doc/
+# 以 doc 开头的本地文档目录（doc、doc_v3、doc2 等），仅本地维护，不提交
+doc*/
 
 # 本地文档生成脚本
 scripts/
