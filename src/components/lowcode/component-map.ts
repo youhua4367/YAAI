@@ -23,7 +23,7 @@ const COMPONENT_MAP: Record<string, Component> = {
     () => import('@/views/home/sections/HomeEvents.vue')
   ),
   news_list: defineAsyncComponent(
-    () => import('@/views/home/sections/HomeNews.vue')
+    () => import('@/components/lowcode/NewsListBlock.vue')
   ),
   home_shortcuts: defineAsyncComponent(
     () => import('@/views/home/sections/HomeShortcuts.vue')

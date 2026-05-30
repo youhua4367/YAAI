@@ -29,7 +29,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import type { NewsItem } from '@/types/news'
-import { fetchNewsListByCategoryId } from '@/api/news'
+import { fetchNewsListByCategoryId, fetchLatestNews } from '@/api/news'
 import { useSiteMenusStore } from '@/stores/siteMenus'
 import { useSitePagesStore } from '@/stores/sitePages'
 import { useSitePaths } from '@/composables/useSitePaths'
@@ -61,7 +61,20 @@ async function loadPanels() {
   await siteMenusStore.ensureLoaded()
   const pages = sitePagesStore.enabledPages
   const submenus = siteMenusStore.pickHomeNewsSubmenus(HOME_PANEL_COUNT)
-  const fallbackMore = newsListPath() || '/'
+  const fallbackMore = newsListPath() || '/news'
+
+  if (!submenus.length) {
+    const list = await fetchLatestNews(LIST_LIMIT)
+    panels.value = [
+      {
+        key: 'fallback-all',
+        title: '新闻动态',
+        morePath: fallbackMore,
+        items: list
+      }
+    ]
+    return
+  }
 
   panels.value = await Promise.all(
     submenus.map(async (menu) => {

@@ -78,7 +78,8 @@ const bindProps = computed(() => {
 
   return {
     ...parsedProps.value,
-    layout: parsedLayout.value
+    layout: parsedLayout.value,
+    dataBindingId: props.node.dataBindingId ?? undefined
   }
 })
 </script>
