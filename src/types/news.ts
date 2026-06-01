@@ -1,3 +1,12 @@
+/** `GET /news-categories` 列表项 */
+export interface NewsCategory {
+  id: number
+  name: string
+  code?: string | null
+  sortOrder?: number | null
+  status?: boolean
+}
+
 /**
  * 新闻列表查询参数（前端封装）
  * @description 映射到后端 `GET /news` 的 `current`、`size`（沿用 pageNum/pageSize 别名便于旧调用方）

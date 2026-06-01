@@ -4,9 +4,17 @@ import type { SitePage } from '@/types/sitePage'
 
 const CHANNEL_PAGE_TYPES = new Set(['channel', 'single'])
 
-/** 仅 channel / single 走侧栏栏目；首页与其它 portal 页由 DynamicPage + node-tree 渲染 */
-export function createBuiltinModuleRoute(page: SitePage): RouteRecordRaw | null {
-  if (CHANNEL_PAGE_TYPES.has(page.pageType)) {
+export interface BuiltinModuleRouteOptions {
+  /** 页面在 GET /menus 下有关联子菜单（如 /news） */
+  hasSubmenus?: boolean
+}
+
+/** channel / single，或有侧栏子菜单的页面 → SidebarLayout + DynamicPage */
+export function createBuiltinModuleRoute(
+  page: SitePage,
+  options: BuiltinModuleRouteOptions = {}
+): RouteRecordRaw | null {
+  if (CHANNEL_PAGE_TYPES.has(page.pageType) || options.hasSubmenus) {
     return createChannelModuleRoute(page)
   }
 
@@ -30,13 +38,13 @@ function createChannelModuleRoute(page: SitePage): RouteRecordRaw {
       {
         path: '',
         name: `ChannelIndex_${page.id}`,
-        component: () => import('@/views/channel/ChannelPane.vue'),
+        component: () => import('@/views/cms/DynamicPage.vue'),
         meta
       },
       {
         path: ':segment',
         name: `ChannelSegment_${page.id}`,
-        component: () => import('@/views/channel/ChannelPane.vue'),
+        component: () => import('@/views/cms/DynamicPage.vue'),
         meta
       }
     ]

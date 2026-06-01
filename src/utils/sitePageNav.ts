@@ -25,9 +25,18 @@ function isStaticRoutePath(path: string): boolean {
   return STATIC_ROUTE_PREFIXES.some((prefix) => isPathUnderModule(normalized, prefix))
 }
 
-export function shouldRegisterDynamicRoute(page: SitePage): boolean {
+export interface DynamicRouteOptions {
+  /** 已走 SidebarLayout 栏目壳，不再注册顶层 DynamicPage */
+  hasSubmenus?: boolean
+}
+
+export function shouldRegisterDynamicRoute(
+  page: SitePage,
+  options: DynamicRouteOptions = {}
+): boolean {
   if (!page.status) return false
   if (page.pageType === 'channel' || page.pageType === 'single') return false
+  if (options.hasSubmenus) return false
 
   const path = normalizePagePath(page.path)
   if (isStaticRoutePath(path)) return false

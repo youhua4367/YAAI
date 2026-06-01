@@ -1,96 +1,52 @@
 <template>
   <div class="news-container">
-    <div
-      v-for="(panel, index) in panels"
-      :key="panel.key"
-      class="card news-sub-card"
-      :class="{ 'second-card': index === 1 }"
-    >
+    <div class="card news-sub-card">
       <div class="card-header">
         <div class="header-main">
           <span class="title-icon blue"></span>
-          <h3>{{ panel.title }}</h3>
+          <h3>{{ panelTitle }}</h3>
         </div>
-        <router-link :to="panel.morePath" class="more-link">更多</router-link>
+        <router-link :to="morePath" class="more-link">更多</router-link>
       </div>
-      <ul v-if="panel.items.length" class="fancy-list">
-        <li v-for="item in panel.items" :key="item.id">
+      <ul v-if="items.length" class="fancy-list">
+        <li v-for="item in items" :key="item.id">
           <router-link :to="contentPath(item.id)" class="list-content">
             <span class="title-text">{{ item.title }}</span>
             <span class="date-tag">{{ listDateShort(item.publishTime) }}</span>
           </router-link>
         </li>
       </ul>
-      <div v-else class="empty-state">暂无{{ panel.title }}</div>
+      <div v-else class="empty-state">暂无新闻</div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import type { NewsItem } from '@/types/news'
-import { fetchNewsListByCategoryId, fetchLatestNews } from '@/api/news'
-import { useSiteMenusStore } from '@/stores/siteMenus'
-import { useSitePagesStore } from '@/stores/sitePages'
+import { fetchLatestNews } from '@/api/news'
 import { useSitePaths } from '@/composables/useSitePaths'
 import { contentPath } from '@/utils/contentRoute'
-import { resolveMenuPath } from '@/utils/menuPath'
 
-const HOME_PANEL_COUNT = 2
 const LIST_LIMIT = 10
+const panelTitle = '新闻动态'
 
-export interface HomeNewsPanel {
-  key: string
-  title: string
-  morePath: string
-  items: NewsItem[]
-}
-
-const siteMenusStore = useSiteMenusStore()
-const sitePagesStore = useSitePagesStore()
 const { newsListPath } = useSitePaths()
+const items = ref<NewsItem[]>([])
 
-const panels = ref<HomeNewsPanel[]>([])
+const morePath = computed(() => newsListPath() || '/news')
 
 function listDateShort(publishTime: string | null | undefined): string {
   if (!publishTime || publishTime.length < 10) return ''
   return publishTime.substring(5)
 }
 
-async function loadPanels() {
-  await siteMenusStore.ensureLoaded()
-  const pages = sitePagesStore.enabledPages
-  const submenus = siteMenusStore.pickHomeNewsSubmenus(HOME_PANEL_COUNT)
-  const fallbackMore = newsListPath() || '/news'
-
-  if (!submenus.length) {
-    const list = await fetchLatestNews(LIST_LIMIT)
-    panels.value = [
-      {
-        key: 'fallback-all',
-        title: '新闻动态',
-        morePath: fallbackMore,
-        items: list
-      }
-    ]
-    return
-  }
-
-  panels.value = await Promise.all(
-    submenus.map(async (menu) => {
-      const list = await fetchNewsListByCategoryId(menu.id)
-      return {
-        key: `menu-${menu.id}`,
-        title: menu.name,
-        morePath: resolveMenuPath(menu, pages) || fallbackMore,
-        items: list.slice(0, LIST_LIMIT)
-      }
-    })
-  )
+async function loadLatest() {
+  items.value = await fetchLatestNews(LIST_LIMIT)
 }
 
 onMounted(() => {
-  void loadPanels()
+  void loadLatest()
 })
 </script>
 

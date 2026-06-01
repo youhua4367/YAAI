@@ -37,7 +37,9 @@
             <div class="title-underline"></div>
           </div>
           <div class="content-pad">
-            <router-view />
+            <slot>
+              <router-view />
+            </slot>
           </div>
         </main>
       </div>
@@ -47,19 +49,27 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import Breadcrumbs from '@/components/common/Breadcrumbs.vue'
+import { useNewsCategoryStore } from '@/stores/newsCategory'
 import { useSiteMenusStore } from '@/stores/siteMenus'
 import { useSitePagesStore } from '@/stores/sitePages'
 import { isSameMenuPath } from '@/utils/menuPath'
+import {
+  isNewsPageCode,
+  parseCategoryIdFromRoute
+} from '@/utils/newsCategoryRoute'
+import { normalizePagePath } from '@/utils/paths'
 
 const props = defineProps<{
   pageId: number
 }>()
 
 const route = useRoute()
+const router = useRouter()
 const siteMenusStore = useSiteMenusStore()
 const sitePagesStore = useSitePagesStore()
+const newsCategoryStore = useNewsCategoryStore()
 
 const sidebarItems = ref<{ name: string; path: string }[]>([])
 
@@ -67,14 +77,56 @@ const page = computed(() => sitePagesStore.pageById(props.pageId))
 
 const groupTitle = computed(() => page.value?.name ?? '栏目')
 
+const isNewsPage = computed(() => isNewsPageCode(page.value?.code))
+
+const pageBasePath = computed(() =>
+  page.value ? normalizePagePath(page.value.path) : ''
+)
+
 async function refreshSidebar() {
+  if (isNewsPage.value) {
+    await newsCategoryStore.ensureLoaded()
+    sidebarItems.value = newsCategoryStore.sidebarItemsForPage(pageBasePath.value)
+    return
+  }
+
   await siteMenusStore.ensureLoaded()
   sidebarItems.value = siteMenusStore.sidebarItemsForPage(props.pageId)
 }
 
+async function redirectToFirstSubmenuIfNeeded() {
+  const base = pageBasePath.value
+  if (!base) return
+
+  if (isNewsPage.value) {
+    if (!isSameMenuPath(route.path, base)) return
+    if (parseCategoryIdFromRoute(route) > 0) return
+
+    const target = sidebarItems.value[0]?.path
+    if (target && !isSameMenuPath(route.fullPath, target)) {
+      await router.replace(target)
+    }
+    return
+  }
+
+  if (!isSameMenuPath(route.fullPath, base)) return
+
+  const target = sidebarItems.value[0]?.path
+  if (target && !target.startsWith('http') && !isSameMenuPath(route.fullPath, target)) {
+    await router.replace(target)
+  }
+}
+
 onMounted(() => {
-  void refreshSidebar()
+  void refreshSidebar().then(() => redirectToFirstSubmenuIfNeeded())
 })
+
+watch(
+  () => route.fullPath,
+  () => {
+    void redirectToFirstSubmenuIfNeeded()
+  }
+)
 
 watch(
   () => props.pageId,

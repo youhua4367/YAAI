@@ -104,12 +104,6 @@ export const useSiteMenusStore = defineStore('siteMenus', () => {
     )
   }
 
-  /** 子菜单 id 即 GET /news/show-list 的 category_id（由 externalUrl 解析路径匹配） */
-  function categoryIdFromRoute(pageId: number, fullPath: string): number {
-    const menu = findSubmenuByRoute(pageId, fullPath)
-    return menu?.id ?? -1
-  }
-
   function toNavLinks(
     list: SiteMenu[],
     pages: SitePage[]
@@ -201,7 +195,6 @@ export const useSiteMenusStore = defineStore('siteMenus', () => {
     menuByCode,
     pathByMenuCode,
     findSubmenuByRoute,
-    categoryIdFromRoute,
     childrenOf,
     sidebarItemsForPage,
     navLinkForPage,

@@ -8,6 +8,7 @@ import { createPinia } from 'pinia'
 import { createPersistedState } from 'pinia-plugin-persistedstate'
 import { useSitePagesStore } from '@/stores/sitePages'
 import { useSiteMenusStore } from '@/stores/siteMenus'
+import { useNewsCategoryStore } from '@/stores/newsCategory'
 import { useSiteConfigStore } from '@/stores/siteConfig'
 
 async function bootstrap() {
@@ -21,6 +22,7 @@ async function bootstrap() {
   const siteMenusStore = useSiteMenusStore(pinia)
   await sitePagesStore.ensureLoaded()
   await siteMenusStore.ensureLoaded()
+  await useNewsCategoryStore(pinia).ensureLoaded()
   await useSiteConfigStore(pinia).ensureLoaded()
   sitePagesStore.registerSiteRoutes(router)
 

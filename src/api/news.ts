@@ -1,6 +1,6 @@
 import request from '@/utils/request'
 import type { Result } from '@/types/result'
-import type { NewsItem, NewsQueryParams, PageResult } from '@/types/news'
+import type { NewsCategory, NewsItem, NewsQueryParams, PageResult } from '@/types/news'
 
 /** `GET /news/show-list` 响应（展示端列表） */
 export interface NewsShowListResult {
@@ -31,9 +31,23 @@ export function getNewsPage(
   return request.get('/news', { params: toNewsListQuery(params) })
 }
 
+/** 新闻分类列表 `GET /news-categories` */
+export async function fetchNewsCategories(): Promise<NewsCategory[]> {
+  try {
+    const res = await request.get('/news-categories')
+    const data = res.data
+    if (Array.isArray(data)) return data
+    if (data?.items && Array.isArray(data.items)) return data.items
+    if (data?.records && Array.isArray(data.records)) return data.records
+    return []
+  } catch {
+    return []
+  }
+}
+
 /**
  * 展示端新闻列表 `GET /news/show-list`
- * @param category_id 与菜单项 `id` 一致，对应新闻 `categoryId`
+ * @param category_id 对应 `news_category.id` / 新闻 `categoryId`
  */
 export function fetchNewsShowList(params: {
   category_id?: number
@@ -54,18 +68,15 @@ export function fetchNewsShowList(params: {
   return request.get('/news/show-list', { params: q })
 }
 
-/**
- * 按菜单 id（= category_id）拉取已发布新闻列表
- * 不使用 GET /news-categories
- */
+/** 按 `news_category.id` 拉取已发布新闻列表 */
 export async function fetchNewsListByCategoryId(
-  menuCategoryId: number,
+  categoryId: number,
   pageSize = 100
 ): Promise<NewsItem[]> {
-  if (!Number.isFinite(menuCategoryId) || menuCategoryId <= 0) return []
+  if (!Number.isFinite(categoryId) || categoryId <= 0) return []
   try {
     const res = await fetchNewsShowList({
-      category_id: menuCategoryId,
+      category_id: categoryId,
       page: 1,
       page_size: pageSize
     })
