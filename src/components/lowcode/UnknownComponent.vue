@@ -1,7 +1,12 @@
 <template>
-  <div class="unknown-component" role="note">
-    [未知组件: {{ displayKey }}<template v-if="nodeName"> ({{ nodeName }})</template>]
-  </div>
+  <el-alert
+    class="unknown-component"
+    type="warning"
+    :closable="false"
+    show-icon
+    role="note"
+    :title="alertTitle"
+  />
 </template>
 
 <script setup lang="ts">
@@ -13,16 +18,17 @@ const props = defineProps<{
 }>()
 
 const displayKey = computed(() => props.componentKey?.trim() || '—')
+
+const alertTitle = computed(() => {
+  const name = props.nodeName?.trim()
+  return name
+    ? `未知组件错误：${displayKey.value}（${name}）`
+    : `未知组件错误：${displayKey.value}`
+})
 </script>
 
 <style scoped>
 .unknown-component {
   margin: 12px 0;
-  padding: 12px 16px;
-  border-radius: 8px;
-  background: #f1f5f9;
-  color: #64748b;
-  font-size: 14px;
-  line-height: 1.5;
 }
 </style>

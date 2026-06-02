@@ -126,3 +126,22 @@ export async function fetchLatestNews(limit = 5): Promise<NewsItem[]> {
 export function getNewsById(id: number): Promise<Result<NewsItem>> {
   return request.get(`/news/${id}`)
 }
+
+/** 按 contentId 顺序批量拉取新闻（跳过无效 id 或请求失败项） */
+export async function fetchNewsByIds(ids: number[]): Promise<NewsItem[]> {
+  const validIds = ids.filter((id) => Number.isFinite(id) && id > 0)
+  if (!validIds.length) return []
+
+  const results = await Promise.all(
+    validIds.map(async (id) => {
+      try {
+        const res = await getNewsById(id)
+        return res.success && res.data ? res.data : null
+      } catch {
+        return null
+      }
+    })
+  )
+
+  return results.filter((item): item is NewsItem => item != null)
+}

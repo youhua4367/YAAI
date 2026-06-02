@@ -5,13 +5,11 @@
         <div class="topbar-left">
           <a href="#">办公系统</a>
           <span class="divider">|</span>
-          <router-link to="/login">会员登录</router-link>
+          <router-link :to="isLoggedIn ? USER_CENTER_PATH : LOGIN_PATH">会员登录</router-link>
           <span class="divider">|</span>
           <router-link to="/apply">会员注册</router-link>
           <span class="divider">|</span>
-          <router-link to="/user">会员中心</router-link>
-          <span class="divider">|</span>
-          <router-link :to="aboutIntroductionPath">联系我们</router-link>
+          <router-link :to="isLoggedIn ? USER_CENTER_PATH : LOGIN_PATH">会员中心</router-link>
         </div>
         <div class="topbar-right">
           <span>欢迎访问云南人工智能学会官网</span>
@@ -22,9 +20,11 @@
 </template>
 
 <script setup lang="ts">
-import { useSitePaths } from '@/composables/useSitePaths'
+import { LOGIN_PATH, USER_CENTER_PATH } from '@/constants/authPaths'
+import { useTokenStore } from '@/stores/token'
+import { storeToRefs } from 'pinia'
 
-const { aboutIntroductionPath } = useSitePaths()
+const { isLoggedIn } = storeToRefs(useTokenStore())
 </script>
 
 <style scoped>

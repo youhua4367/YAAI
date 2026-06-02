@@ -6,6 +6,7 @@ export { updateUser } from './user'
 import type {
   RegisterParams,
   LoginParams,
+  LoginSessionData,
   CancelApplyParams,
   SingleMemberApplyRequest,
   CompanyMemberApplyRequest
@@ -20,7 +21,7 @@ export const register = (params: RegisterParams): Promise<Result<void>> => {
 }
 
 // 用户登录（phone和email至少填一个）
-export const login = (params: LoginParams): Promise<Result<void>> => {
+export const login = (params: LoginParams): Promise<Result<LoginSessionData>> => {
   return request.post('/member/login', params)
 }
 

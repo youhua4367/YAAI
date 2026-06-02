@@ -3,35 +3,62 @@
     <div class="card-header">
       <div class="title-group">
         <span class="decorator"></span>
-        <h3>常用入口</h3>
+        <h3 v-if="sectionTitle">{{ sectionTitle }}</h3>
       </div>
     </div>
-    
-    <div class="shortcuts-grid">
-      <router-link 
-        v-for="(shortcut, index) in shortcuts" 
-        :key="index"
+
+    <div v-if="shortcuts.length" class="shortcuts-grid">
+      <router-link
+        v-for="shortcut in shortcuts"
+        :key="shortcut.url"
         :to="shortcut.url"
         class="shortcut-item"
       >
         <div class="shortcut-icon-wrapper">
           <div class="icon-blob"></div>
-          <img :src="shortcut.icon" :alt="shortcut.title" class="icon-img">
+          <img :src="shortcut.icon" :alt="shortcut.title" class="icon-img" loading="lazy" />
         </div>
         <div class="shortcut-info">
           <span class="shortcut-name">{{ shortcut.title }}</span>
-          <span class="shortcut-desc">{{ shortcut.desc }}</span>
+          <span v-if="shortcut.desc" class="shortcut-desc">{{ shortcut.desc }}</span>
         </div>
         <div class="entry-arrow">
-          <svg viewBox="0 0 1024 1024" width="16" height="16"><path d="M340.864 149.312a30.592 30.592 0 0 0 0 42.752L652.736 512 340.864 831.936a30.592 30.592 0 0 0 0 42.752 29.12 29.12 0 0 0 41.728 0L715.424 533.376a30.592 30.592 0 0 0 0-42.752L382.592 149.312a29.12 29.12 0 0 0-41.728 0z" fill="currentColor"></path></svg>
+          <svg viewBox="0 0 1024 1024" width="16" height="16">
+            <path
+              d="M340.864 149.312a30.592 30.592 0 0 0 0 42.752L652.736 512 340.864 831.936a30.592 30.592 0 0 0 0 42.752 29.12 29.12 0 0 0 41.728 0L715.424 533.376a30.592 30.592 0 0 0 0-42.752L382.592 149.312a29.12 29.12 0 0 0-41.728 0z"
+              fill="currentColor"
+            />
+          </svg>
         </div>
       </router-link>
     </div>
+    <el-empty v-else description="暂无快捷入口" />
   </div>
 </template>
 
 <script setup lang="ts">
-const shortcuts = [
+import { computed } from 'vue'
+import { useSiteMenusStore } from '@/stores/siteMenus'
+import { useSitePagesStore } from '@/stores/sitePages'
+import { resolveSectionTitle } from '@/utils/sectionTitle'
+
+const props = defineProps<{
+  nodeName?: string
+  title?: string
+}>()
+
+const sectionTitle = computed(() => resolveSectionTitle(props.nodeName, props.title))
+
+const DYNAMIC_SLOT_COUNT = 2
+
+interface ShortcutItem {
+  title: string
+  desc: string
+  icon: string
+  url: string
+}
+
+const STATIC_SHORTCUTS: ShortcutItem[] = [
   {
     title: '会员注册',
     desc: '在线提交入会申请',
@@ -39,24 +66,50 @@ const shortcuts = [
     url: '/apply'
   },
   {
-    title: '会员中心',
-    desc: '缴费、资料与账户',
+    title: '会员登录',
+    desc: '登录会员账户',
     icon: 'https://img.icons8.com/color/48/user.png',
-    url: '/user'
-  },
-  {
-    title: '服务矩阵',
-    desc: '会员服务与平台资源',
-    icon: 'https://img.icons8.com/fluency/48/book.png',
-    url: '/services'
-  },
-  {
-    title: '会议系统',
-    desc: '会议信息与参会指引',
-    icon: 'https://img.icons8.com/fluency/48/conference.png',
-    url: '/conference'
+    url: '/login'
   }
 ]
+
+const sitePagesStore = useSitePagesStore()
+const siteMenusStore = useSiteMenusStore()
+
+function shortcutIcon(code?: string | null): string {
+  switch (code) {
+    case 'services':
+      return 'https://img.icons8.com/fluency/48/book.png'
+    case 'conference':
+      return 'https://img.icons8.com/fluency/48/conference.png'
+    case 'news':
+      return 'https://img.icons8.com/fluency/48/news.png'
+    case 'about':
+      return 'https://img.icons8.com/fluency/48/info.png'
+    default:
+      return 'https://img.icons8.com/fluency/48/link.png'
+  }
+}
+
+/** 除首页外，按顶栏顺序取前 N 个站点页 */
+const shortcuts = computed<ShortcutItem[]>(() => {
+  const pages = sitePagesStore.enabledPages
+
+  const dynamicItems = siteMenusStore.navItems
+    .filter((item) => item.code !== 'home')
+    .slice(0, DYNAMIC_SLOT_COUNT)
+    .map((item) => {
+      const page = pages.find((p) => p.id === item.pageId)
+      return {
+        title: item.name,
+        desc: page?.title?.trim() || page?.name || '',
+        icon: shortcutIcon(item.code),
+        url: item.path
+      }
+    })
+
+  return [...dynamicItems, ...STATIC_SHORTCUTS]
+})
 </script>
 
 <style scoped>
@@ -92,7 +145,6 @@ const shortcuts = [
   color: #1e293b;
 }
 
-/* --- 网格优化：全宽状态下采用 4 列 --- */
 .shortcuts-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -121,7 +173,6 @@ const shortcuts = [
   border-color: rgba(12, 77, 162, 0.15);
 }
 
-/* --- 图标背景装饰 --- */
 .shortcut-icon-wrapper {
   position: relative;
   width: 48px;
@@ -160,7 +211,6 @@ const shortcuts = [
   filter: brightness(0) invert(1);
 }
 
-/* --- 文本信息 --- */
 .shortcut-info {
   display: flex;
   flex-direction: column;
@@ -179,7 +229,6 @@ const shortcuts = [
   color: #94a3b8;
 }
 
-/* --- 右侧引导小箭头 --- */
 .entry-arrow {
   color: #cbd5e1;
   transition: all 0.3s;
@@ -193,7 +242,6 @@ const shortcuts = [
   color: #0c4da2;
 }
 
-/* --- 响应式适配 --- */
 @media (max-width: 1024px) {
   .shortcuts-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -206,6 +254,7 @@ const shortcuts = [
     gap: 12px;
     padding: 16px;
   }
+
   .shortcut-item {
     padding: 16px;
   }

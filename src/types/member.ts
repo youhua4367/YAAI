@@ -22,6 +22,21 @@ export interface LoginParams {
   password: string
 }
 
+/** `POST /member/login` 成功时 `data`（Sa-Token 会话信息） */
+export interface LoginSessionData {
+  isLogin: boolean
+  loginDeviceType?: string
+  loginId: string | number
+  loginType?: string
+  sessionTimeout?: number
+  tag?: string | null
+  tokenActiveTimeout?: number
+  tokenName: string
+  tokenSessionTimeout?: number
+  tokenTimeout?: number
+  tokenValue: string
+}
+
 /**
  * 更新用户信息参数
  * @description 更新用户信息时需要提交的参数

@@ -5,8 +5,7 @@ import { fetchPages } from '@/api/page'
 import type { SitePage } from '@/types/sitePage'
 import { normalizePagePath, shouldRegisterDynamicRoute } from '@/utils/sitePageNav'
 import { createBuiltinModuleRoute } from '@/router/builtinModuleRoutes'
-import { useSiteMenusStore } from '@/stores/siteMenus'
-import { isNewsPageCode } from '@/utils/newsCategoryRoute'
+import { useNewsCategoryStore } from '@/stores/newsCategory'
 
 /** 后端不可用时仅保留首页兜底 */
 const FALLBACK_HOME_PAGE: SitePage = {
@@ -80,12 +79,10 @@ export const useSitePagesStore = defineStore('sitePages', () => {
   function registerSiteRoutes(router: Router): void {
     if (routesRegistered.value) return
 
-    const siteMenusStore = useSiteMenusStore()
+    const newsCategoryStore = useNewsCategoryStore()
 
     for (const page of enabledPages.value) {
-      const hasSubmenus =
-        siteMenusStore.submenusForPage(page.id, true).length > 0 ||
-        isNewsPageCode(page.code)
+      const hasSubmenus = newsCategoryStore.hasCategoriesForPage(page.id)
       const routeOpts = { hasSubmenus }
 
       const builtin = createBuiltinModuleRoute(page, routeOpts)

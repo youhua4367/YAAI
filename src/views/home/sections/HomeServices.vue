@@ -3,43 +3,105 @@
     <div class="card-header">
       <div class="title-group">
         <span class="title-decorator"></span>
-        <h3>服务矩阵</h3>
+        <h3 v-if="sectionTitle">{{ sectionTitle }}</h3>
       </div>
-      <router-link to="/services" class="more-link">
+      <router-link v-if="moreLink" :to="moreLink" class="more-link">
         查看全部 <span class="arrow">→</span>
       </router-link>
     </div>
-    
-    <div class="services-grid">
-      <router-link 
-        v-for="(service, index) in services" 
-        :key="index"
-        :to="service.url"
+
+    <div v-if="loading" class="services-loading">加载中…</div>
+    <div v-else-if="services.length" class="services-grid">
+      <router-link
+        v-for="service in services"
+        :key="service.id"
+        :to="service.link"
         class="service-item"
       >
         <div class="hover-indicator"></div>
-        
+
         <div class="service-icon-wrapper">
           <div class="icon-bg"></div>
-          <img :src="service.icon" :alt="service.title" class="main-icon">
+          <img :src="service.icon" :alt="service.title" class="main-icon" loading="lazy" />
         </div>
-        
+
         <div class="service-info">
           <h4>{{ service.title }}</h4>
           <p>{{ service.description }}</p>
         </div>
       </router-link>
     </div>
+    <el-empty v-else description="暂无服务" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { SERVICE_ENTRIES } from '@/constants/serviceEntries'
+import { computed, onMounted, ref, watch } from 'vue'
+import { fetchNewsByIds } from '@/api/news'
+import type { HomeServiceDisplayItem } from '@/types/homeSection'
+import type { NewsItem } from '@/types/news'
+import { contentPath } from '@/utils/contentRoute'
+import { normalizeContentIds } from '@/utils/contentIds'
+import { resolveSectionTitle } from '@/utils/sectionTitle'
 
-const services = SERVICE_ENTRIES.map((item) => ({
-  ...item,
-  url: `/services?section=${item.key}`
-}))
+const props = defineProps<{
+  nodeName?: string
+  title?: string
+  moreLink?: string
+  contentIds?: number[]
+}>()
+
+const DEFAULT_ICON =
+  'https://images.unsplash.com/photo-1553877522-43269d4ea984?w=60&h=60&fit=crop'
+
+const loading = ref(false)
+const services = ref<HomeServiceDisplayItem[]>([])
+
+const sectionTitle = computed(() => resolveSectionTitle(props.nodeName, props.title))
+const moreLink = computed(() => props.moreLink?.trim() || '/services')
+const ids = computed(() => normalizeContentIds(props.contentIds))
+
+function coverSrc(raw: string | null | undefined): string {
+  const text = raw?.trim()
+  if (!text) return DEFAULT_ICON
+  if (/^https?:\/\//i.test(text)) return text
+  return text.startsWith('/') ? text : `/${text}`
+}
+
+function mapNewsToService(item: NewsItem): HomeServiceDisplayItem {
+  return {
+    id: item.id,
+    title: item.title?.trim() || '服务',
+    description: item.summary?.trim() || '',
+    icon: coverSrc(item.coverImage),
+    link: contentPath(item.id)
+  }
+}
+
+async function loadServices() {
+  if (!ids.value.length) {
+    services.value = []
+    return
+  }
+
+  loading.value = true
+  try {
+    const list = await fetchNewsByIds(ids.value)
+    services.value = list.map(mapNewsToService)
+  } catch {
+    services.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  void loadServices()
+})
+
+watch(ids, () => {
+  void loadServices()
+})
 </script>
 
 <style scoped>
@@ -51,7 +113,6 @@ const services = SERVICE_ENTRIES.map((item) => ({
   overflow: hidden;
 }
 
-/* --- 头部美化 --- */
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -96,12 +157,18 @@ const services = SERVICE_ENTRIES.map((item) => ({
   transform: translateX(3px);
 }
 
-/* --- 网格布局 --- */
+.services-loading {
+  padding: 48px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
 .services-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1px; /* 模拟细边框网格 */
-  background: #f1f5f9; /* 网格线颜色 */
+  gap: 1px;
+  background: #f1f5f9;
   padding: 0;
 }
 
@@ -117,7 +184,6 @@ const services = SERVICE_ENTRIES.map((item) => ({
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* --- 悬浮效果 --- */
 .service-item:hover {
   background: #f8fafc;
   z-index: 1;
@@ -139,7 +205,6 @@ const services = SERVICE_ENTRIES.map((item) => ({
   transform: scaleX(1);
 }
 
-/* --- 图标美化 --- */
 .service-icon-wrapper {
   position: relative;
   width: 80px;
@@ -161,7 +226,7 @@ const services = SERVICE_ENTRIES.map((item) => ({
 .service-item:hover .icon-bg {
   background: #0c4da2;
   transform: scale(1.1) rotate(15deg);
-  border-radius: 18px; /* 悬浮时圆球变方圆 */
+  border-radius: 18px;
 }
 
 .main-icon {
@@ -173,15 +238,11 @@ const services = SERVICE_ENTRIES.map((item) => ({
   transition: all 0.4s ease;
 }
 
-/* 修改此处的 CSS */
 .service-item:hover .main-icon {
-  /* 移除 filter: brightness(0) invert(1); */
-  transform: scale(1.1); 
-  /* 如果想让图标更亮一点，可以用这个： */
-  filter: brightness(1.1); 
+  transform: scale(1.1);
+  filter: brightness(1.1);
 }
 
-/* --- 文字排版 --- */
 .service-item h4 {
   margin: 0 0 12px 0;
   font-size: 17px;
@@ -202,7 +263,6 @@ const services = SERVICE_ENTRIES.map((item) => ({
   padding: 0 10px;
 }
 
-/* --- 响应式适配 --- */
 @media (max-width: 1200px) {
   .services-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -213,6 +273,7 @@ const services = SERVICE_ENTRIES.map((item) => ({
   .services-grid {
     grid-template-columns: 1fr;
   }
+
   .service-item {
     padding: 30px 20px;
     border-bottom: 1px solid #f1f5f9;

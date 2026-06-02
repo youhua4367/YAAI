@@ -50,6 +50,46 @@ export interface MemberSingleVO {
   updatedAt?: string | null
 }
 
+/** `POST /member-single/insert` 请求体（writable 字段） */
+export interface MemberSingleInsertRequest {
+  memberId: number
+  name: string
+  gender?: string | null
+  idCardType?: string | null
+  idCardNumber?: string | null
+  birthDate?: string | null
+  country?: string | null
+  nativePlace?: string | null
+  nationality?: string | null
+  politicalOutlook?: string | null
+  address?: string | null
+  postalCode?: string | null
+  contactPhone?: string | null
+  landlinePhone?: string | null
+  email?: string | null
+  img?: string | null
+  jobTitle?: string | null
+  industry?: string | null
+  workUnit?: string | null
+  workDepartment?: string | null
+  position?: string | null
+  workContent?: string | null
+  highestEducation?: string | null
+  major?: string | null
+  researchDirection?: string | null
+  publication?: string | null
+  honors?: string | null
+  projectExperience?: string | null
+  recommender?: string | null
+  other?: string | null
+  areaCode?: string | null
+}
+
+/** `POST /member-single/updateById` 请求体 */
+export interface MemberSingleUpdateRequest extends MemberSingleInsertRequest {
+  id: number
+}
+
 export interface MemberEducationVO {
   id: number
   memberId: number

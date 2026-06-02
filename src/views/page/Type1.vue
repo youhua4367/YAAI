@@ -1,57 +1,44 @@
+<!-- 低代码 componentKey: news_list -->
 <template>
-  <ContentList v-if="showNewsList" :items="items" :basePath="listBasePath" />
-  <div v-else class="channel-placeholder">
-    <h2 class="channel-placeholder__title">{{ title }}</h2>
-    <p class="channel-placeholder__hint">暂无内容</p>
-  </div>
+  <ContentList
+    v-if="showNewsList"
+    :items="items"
+    :loading="loading"
+    :current-page="currentPage"
+    :total-pages="totalPages"
+    :base-path="listBasePath"
+    @update:page="goToPage"
+  />
+  <Empty v-else />
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, ref, toRef, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import ContentList from '@/components/common/ContentList.vue'
+import Empty from '@/views/page/Empty.vue'
 import { useNewsListByCategoryId } from '@/composables/useNewsListByCategoryId'
+import { usePageContext } from '@/composables/usePageContext'
 import { useNewsCategoryStore } from '@/stores/newsCategory'
-import { useSitePagesStore } from '@/stores/sitePages'
 import {
   buildNewsCategoryPath,
-  parseCategoryIdFromRoute
+  parseCategoryIdFromRoute,
+  parsePageFromRoute
 } from '@/utils/newsCategoryRoute'
 
 const props = defineProps<{
   title?: string
+  pageSize?: number
   /** 低代码 node-tree 绑定的 news_category.id */
   dataBindingId?: number | null
 }>()
 
-const route = useRoute()
+const router = useRouter()
+const { route, page, activeCategory } = usePageContext()
 const newsCategoryStore = useNewsCategoryStore()
-const sitePagesStore = useSitePagesStore()
 
-const pageId = computed(() => route.meta.pageId as number | undefined)
+const pageSizeRef = toRef(props, 'pageSize')
 
-const page = computed(() =>
-  pageId.value != null
-    ? sitePagesStore.enabledPages.find((p) => p.id === pageId.value)
-    : undefined
-)
-
-const title = computed(() => {
-  const categoryId = newsCategoryId.value
-  if (categoryId > 0) {
-    const category = newsCategoryStore.categoryById(categoryId)
-    if (category?.name) return category.name
-  }
-  return (
-    props.title?.trim() ||
-    (route.meta.pageTitle as string) ||
-    page.value?.title ||
-    page.value?.name ||
-    '栏目'
-  )
-})
-
-/** 当前选中的 news_category.id（来自 query 或低代码 dataBindingId） */
 const newsCategoryId = computed(() => {
   const fromRoute = parseCategoryIdFromRoute(route)
   if (fromRoute > 0) return fromRoute
@@ -59,35 +46,51 @@ const newsCategoryId = computed(() => {
   return -1
 })
 
+const currentPage = computed(() => parsePageFromRoute(route))
+
 const showNewsList = computed(() => newsCategoryId.value > 0)
 
-const { items } = useNewsListByCategoryId(newsCategoryId)
+const { items, totalPages, loading } = useNewsListByCategoryId(
+  newsCategoryId,
+  currentPage,
+  pageSizeRef
+)
 
 const listBasePath = computed(() => {
   const base = page.value?.path ?? route.path
   const id = newsCategoryId.value
-  return id > 0 ? buildNewsCategoryPath(base, id) : route.fullPath
+  return id > 0 ? buildNewsCategoryPath(base, id, currentPage.value) : route.fullPath
+})
+
+function goToPage(pageNum: number) {
+  const id = newsCategoryId.value
+  if (id <= 0) return
+
+  const base = page.value?.path ?? route.path
+  const maxPage = totalPages.value
+  const target =
+    maxPage > 0 ? Math.min(Math.max(1, pageNum), maxPage) : Math.max(1, pageNum)
+
+  router.push(buildNewsCategoryPath(base, id, target))
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+const prevCategoryId = ref(newsCategoryId.value)
+
+watch(newsCategoryId, (id) => {
+  if (id !== prevCategoryId.value && currentPage.value > 1) {
+    goToPage(1)
+  }
+  prevCategoryId.value = id
+})
+
+watch(totalPages, (maxPage) => {
+  if (maxPage > 0 && currentPage.value > maxPage) {
+    goToPage(maxPage)
+  }
 })
 
 onMounted(() => {
   void newsCategoryStore.ensureLoaded()
 })
 </script>
-
-<style scoped>
-.channel-placeholder {
-  padding: 24px 0;
-}
-
-.channel-placeholder__title {
-  font-size: 22px;
-  font-weight: 700;
-  color: #0f172a;
-  margin-bottom: 12px;
-}
-
-.channel-placeholder__hint {
-  color: #94a3b8;
-  font-size: 14px;
-}
-</style>

@@ -1,14 +1,15 @@
 <template>
   <div class="content-list-container">
-    <ul class="list-wrapper" v-if="items.length">
-      <li v-for="(item, index) in items" :key="index" class="list-node">
+    <div v-if="loading" class="loading-state">加载中…</div>
+    <ul v-else-if="items.length" class="list-wrapper">
+      <li v-for="item in items" :key="item.id" class="list-node">
         <router-link :to="getDetailRoute(item.id)" class="list-item">
           <div class="item-main">
             <span class="list-dot"></span>
             <span class="list-title">{{ item.title }}</span>
           </div>
           <div class="item-meta">
-            <span class="list-date" v-if="item.date">
+            <span v-if="item.date" class="list-date">
               <i class="icon-date"></i>{{ item.date }}
             </span>
             <span class="view-more">详情 <i class="arrow">→</i></span>
@@ -20,26 +21,53 @@
       <p>暂无内容</p>
     </div>
 
-    <nav class="pagination-container" v-if="showPagination && items.length" aria-label="Page navigation">
+    <nav
+      v-if="showPagination && totalPages > 1 && !loading"
+      class="pagination-container"
+      aria-label="Page navigation"
+    >
       <div class="pagination">
-        <a href="#" class="page-ctrl prev" title="上一页">
+        <button
+          type="button"
+          class="page-ctrl prev"
+          title="上一页"
+          :disabled="currentPage <= 1"
+          @click="changePage(currentPage - 1)"
+        >
           <i class="fas fa-angle-double-left"></i>
-        </a>
-        <span class="page-number active">1</span>
-        <a href="#" class="page-number">2</a>
-        <a href="#" class="page-number">3</a>
-        <span class="page-ellipsis">...</span>
-        <a href="#" class="page-number">12</a>
-        <a href="#" class="page-ctrl next" title="下一页">
+        </button>
+
+        <template v-for="(page, index) in visiblePages" :key="`${page}-${index}`">
+          <span v-if="page === 'ellipsis'" class="page-ellipsis">...</span>
+          <button
+            v-else
+            type="button"
+            class="page-number"
+            :class="{ active: page === currentPage }"
+            @click="changePage(page)"
+          >
+            {{ page }}
+          </button>
+        </template>
+
+        <button
+          type="button"
+          class="page-ctrl next"
+          title="下一页"
+          :disabled="currentPage >= totalPages"
+          @click="changePage(currentPage + 1)"
+        >
           <i class="fas fa-angle-double-right"></i>
-        </a>
+        </button>
       </div>
     </nav>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { contentPath } from '@/utils/contentRoute'
+import { buildVisiblePageNumbers } from '@/utils/paginationPages'
 
 interface ListItem {
   id: string | number
@@ -47,23 +75,41 @@ interface ListItem {
   date?: string
 }
 
-const props = defineProps({
-  items: {
-    type: Array as () => ListItem[],
-    required: true
-  },
-  /** 保留供父组件标注来源模块，不参与路由拼接 */
-  basePath: {
-    type: String,
-    default: '/'
-  },
-  showPagination: {
-    type: Boolean,
-    default: true
+const props = withDefaults(
+  defineProps<{
+    items: ListItem[]
+    currentPage?: number
+    totalPages?: number
+    loading?: boolean
+    showPagination?: boolean
+    /** 保留供父组件标注来源模块，不参与路由拼接 */
+    basePath?: string
+  }>(),
+  {
+    currentPage: 1,
+    totalPages: 0,
+    loading: false,
+    showPagination: true,
+    basePath: '/'
   }
-})
+)
 
-const getDetailRoute = (id: string | number) => contentPath(id)
+const emit = defineEmits<{
+  'update:page': [page: number]
+}>()
+
+const visiblePages = computed(() =>
+  buildVisiblePageNumbers(props.currentPage, props.totalPages)
+)
+
+function getDetailRoute(id: string | number) {
+  return contentPath(id)
+}
+
+function changePage(page: number) {
+  if (page < 1 || page > props.totalPages || page === props.currentPage) return
+  emit('update:page', page)
+}
 </script>
 
 <style scoped>
@@ -150,7 +196,7 @@ const getDetailRoute = (id: string | number) => contentPath(id)
 .list-date {
   font-size: 14px;
   color: var(--text-light);
-  font-family: "SF Mono", "Roboto Mono", monospace;
+  font-family: 'SF Mono', 'Roboto Mono', monospace;
 }
 
 .view-more {
@@ -167,6 +213,7 @@ const getDetailRoute = (id: string | number) => contentPath(id)
   transform: translateX(0);
 }
 
+.loading-state,
 .empty-state {
   padding: 60px 20px;
   text-align: center;
@@ -186,11 +233,12 @@ const getDetailRoute = (id: string | number) => contentPath(id)
   background: #fff;
   padding: 6px;
   border-radius: 50px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
   border: 1px solid var(--border-color);
 }
 
-.page-number, .page-ctrl {
+.page-number,
+.page-ctrl {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -198,13 +246,15 @@ const getDetailRoute = (id: string | number) => contentPath(id)
   height: 38px;
   padding: 0 6px;
   border-radius: 50%;
-  text-decoration: none;
+  border: none;
+  background: transparent;
   color: var(--text-main);
   font-size: 14px;
   font-weight: 500;
+  cursor: pointer;
 }
 
-.page-number:hover {
+.page-number:hover:not(.active) {
   background: var(--hover-bg);
 }
 
@@ -222,7 +272,12 @@ const getDetailRoute = (id: string | number) => contentPath(id)
   color: var(--text-light);
 }
 
-.page-ctrl:hover {
+.page-ctrl:hover:not(:disabled) {
   color: var(--primary-color);
+}
+
+.page-ctrl:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 </style>

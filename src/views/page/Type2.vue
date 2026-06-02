@@ -1,5 +1,7 @@
+<!-- 低代码 componentKey: rich_text -->
 <template>
-  <article class="article-page">
+  <Empty v-if="!loadingNews && !hasContent" />
+  <article v-else-if="hasContent" class="article-page">
     <figure v-if="article.coverImage" class="article-page__cover">
       <img :src="article.coverImage" :alt="article.title" loading="lazy" />
     </figure>
@@ -7,18 +9,18 @@
     <div class="article-page__inner">
       <header class="article-page__head">
         <h1 class="article-page__title">{{ article.title }}</h1>
-        
+
         <p v-if="article.summary" class="article-page__summary">
           <span class="summary-tag">摘要</span>
           {{ article.summary }}
         </p>
 
-        <div class="article-page__meta">
-          <div class="meta-item">
+        <div v-if="article.author || article.publishTime" class="article-page__meta">
+          <div v-if="article.author" class="meta-item">
             <span class="meta-label">作者</span>
             <span class="meta-val author-badge">{{ article.author }}</span>
           </div>
-          <div class="meta-item">
+          <div v-if="article.publishTime" class="meta-item">
             <span class="meta-label">发布于</span>
             <span class="meta-val">{{ article.publishTime }}</span>
           </div>
@@ -33,39 +35,102 @@
 </template>
 
 <script setup lang="ts">
-const article = {
-  title: '云南省人工智能学会简介',
-  summary:
-    '云南省人工智能学会是云南省从事人工智能相关研究、开发、应用与推广的科技工作者自愿组成的学术性、非营利性社会组织。',
-  author: '云南省人工智能学会秘书处',
-  publishTime: '2026-01-15 10:00',
-  coverImage:
-    'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=1200&h=514&fit=crop',
-  content: `
-    <p>云南省人工智能学会（Yunnan Association for Artificial Intelligence，简称 YNAI）成立于人工智能产业蓬勃发展的关键时期，旨在团结全省 AI 领域专家学者与产业力量，推动学术繁荣、技术突破与成果转化。</p>
+import { computed, ref, watch } from 'vue'
+import Empty from '@/views/page/Empty.vue'
+import { fetchNewsListByCategoryId } from '@/api/news'
+import { usePageContext } from '@/composables/usePageContext'
+import { parseCategoryIdFromRoute } from '@/utils/newsCategoryRoute'
+import type { NewsItem } from '@/types/news'
 
-    <h2>学会宗旨</h2>
-    <p>坚持面向世界科技前沿、面向经济主战场、面向国家重大需求、面向人民生命健康，搭建政产学研用协同平台，服务会员成长，促进云南省人工智能事业高质量发展。</p>
+const props = defineProps<{
+  title?: string
+  /** 低代码 data_binding：可为 news_category.id */
+  dataBindingId?: number | null
+}>()
 
-    <h2>主要职能</h2>
-    <ul>
-      <li>组织开展学术研讨、技术交流与科普活动；</li>
-      <li>开展人工智能领域科技咨询、评估与培训；</li>
-      <li>推动科研成果转化与产业应用示范；</li>
-      <li>反映会员诉求，维护会员合法权益；</li>
-      <li>承接政府委托，参与行业标准与政策研究。</li>
-    </ul>
+const { route, activeCategory } = usePageContext()
 
-    <h2>发展愿景</h2>
-    <p>立足云南、面向全国，将学会建设成为在西南地区具有重要影响力的人工智能学术高地与技术服务枢纽，为云南打造面向南亚东南亚的人工智能开放合作窗口提供有力支撑。</p>
+const fetchedNews = ref<NewsItem | null>(null)
+const loadingNews = ref(false)
 
-    <p class="highlight-text">欢迎全省高校、科研院所、企事业单位及各界人士关注并加入云南省人工智能学会，携手共建智能云南。</p>
-  `
+/** 当前栏目 category.id（路由 query 或低代码绑定） */
+const categoryId = computed(() => {
+  const fromRoute = parseCategoryIdFromRoute(route)
+  if (fromRoute > 0) return fromRoute
+  if (activeCategory.value?.id) return activeCategory.value.id
+  if (props.dataBindingId != null && props.dataBindingId > 0) return props.dataBindingId
+  return -1
+})
+
+function formatPublishTime(value: string | null | undefined): string {
+  if (!value) return ''
+  return value.length >= 16 ? value.substring(0, 16).replace('T', ' ') : value
 }
+
+function coverSrc(raw: string | null | undefined): string {
+  const text = raw?.trim()
+  if (!text) return ''
+  if (/^https?:\/\//i.test(text)) return text
+  return text.startsWith('/') ? text : `/${text}`
+}
+
+const displayTitle = computed(
+  () =>
+    props.title?.trim() ||
+    activeCategory.value?.name?.trim() ||
+    fetchedNews.value?.title?.trim() ||
+    '文章'
+)
+
+const article = computed(() => {
+  const news = fetchedNews.value
+  if (!news) {
+    return {
+      title: displayTitle.value,
+      summary: '',
+      author: '',
+      publishTime: '',
+      coverImage: '',
+      content: ''
+    }
+  }
+
+  return {
+    title: news.title?.trim() || displayTitle.value,
+    summary: news.summary?.trim() || '',
+    author: news.author?.trim() || '',
+    publishTime: formatPublishTime(news.publishTime),
+    coverImage: coverSrc(news.coverImage),
+    content: news.content?.trim() || ''
+  }
+})
+
+const hasContent = computed(() => Boolean(article.value.content.trim()))
+
+async function loadFirstNewsInCategory() {
+  const id = categoryId.value
+  if (id <= 0) {
+    fetchedNews.value = null
+    return
+  }
+
+  loadingNews.value = true
+  try {
+    const list = await fetchNewsListByCategoryId(id, 1)
+    fetchedNews.value = list[0] ?? null
+  } catch {
+    fetchedNews.value = null
+  } finally {
+    loadingNews.value = false
+  }
+}
+
+watch(categoryId, () => {
+  void loadFirstNewsInCategory()
+}, { immediate: true })
 </script>
 
 <style scoped>
-/* 核心设计系统：注入符合现代科技/学术风的色调 */
 .article-page {
   --primary: #0a56c6;
   --primary-light: rgba(10, 86, 198, 0.05);
@@ -75,15 +140,15 @@ const article = {
   --text-muted: #64748b;
   --radius-lg: 16px;
   --radius-md: 8px;
-  
+
   max-width: 820px;
   margin: 0 auto;
   padding: 24px 20px 60px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-/* 封面图：增加科技感的微弱投影与悬停平滑缩放 */
 .article-page__cover {
   margin: 0 0 36px;
   width: 100%;
@@ -105,7 +170,6 @@ const article = {
   transform: scale(1.02);
 }
 
-/* 标题排版：调整字重与行高，更具呼吸感 */
 .article-page__title {
   margin: 0 0 24px;
   font-size: clamp(26px, 4.5vw, 36px);
@@ -115,7 +179,6 @@ const article = {
   letter-spacing: -0.01em;
 }
 
-/* 摘要：重新设计成一个高质感的精致卡片 */
 .article-page__summary {
   position: relative;
   margin: 0 0 28px;
@@ -141,7 +204,6 @@ const article = {
   margin-bottom: 8px;
 }
 
-/* Meta 元信息：去掉了枯燥的小圆点，采用扁平化组合，作者加了显眼的轻胶囊背景 */
 .article-page__meta {
   display: flex;
   flex-wrap: wrap;
@@ -175,7 +237,6 @@ const article = {
   color: var(--primary);
 }
 
-/* 分割线：改为更加精致的渐变细线 */
 .article-page__divider {
   height: 1px;
   background: linear-gradient(to right, var(--primary), rgba(241, 245, 249, 0.8) 40%, rgba(241, 245, 249, 0));
@@ -183,7 +244,6 @@ const article = {
   opacity: 0.6;
 }
 
-/* 正文排版：重点优化可读性 */
 .article-page__body {
   font-size: 16.5px;
   line-height: 1.9;
@@ -195,7 +255,6 @@ const article = {
   text-align: justify;
 }
 
-/* H2 标题：升级左侧装饰条为渐变样式，增加下边框，让内容区块划分更明显 */
 .article-page__body :deep(h2) {
   margin: 2em 0 1em;
   font-size: 22px;
@@ -218,11 +277,10 @@ const article = {
   flex-shrink: 0;
 }
 
-/* 列表样式：改用符合科技感的现代小圆点 */
 .article-page__body :deep(ul) {
   margin: 0 0 1.5em;
   padding-left: 1.25em;
-  list-style: none; /* 去除默认圆点 */
+  list-style: none;
 }
 
 .article-page__body :deep(li) {
@@ -232,7 +290,7 @@ const article = {
 }
 
 .article-page__body :deep(li::before) {
-  content: "";
+  content: '';
   position: absolute;
   left: 0;
   top: 0.65em;
@@ -243,7 +301,6 @@ const article = {
   opacity: 0.7;
 }
 
-/* 结尾强调文本（通过富文本注入的 class 样式支撑） */
 .article-page__body :deep(.highlight-text) {
   margin-top: 2.5em;
   padding: 20px;
@@ -255,22 +312,20 @@ const article = {
   color: var(--text-main);
 }
 
-/* 移动端响应式优化 */
 @media (max-width: 768px) {
   .article-page {
     padding: 16px 16px 40px;
   }
-  
+
   .article-page__cover {
     margin-bottom: 24px;
     border-radius: var(--radius-md);
   }
-  
+
   .article-page__meta {
-    flex-direction: row; /* 保持横向平铺，避免垂直堆叠拉长页面 */
     gap: 16px;
   }
-  
+
   .article-page__divider {
     margin: 24px 0;
   }

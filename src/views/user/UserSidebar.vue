@@ -42,7 +42,7 @@ const emit = defineEmits<{
 const menuItems = [
   { key: 'home', label: '首页', icon: 'fas fa-th-large' },
   { key: 'orders', label: '我的缴费', icon: 'fas fa-wallet' },
-  { key: 'profile', label: '我的资料', icon: 'fas fa-user-circle' }
+  { key: 'profile', label: '个人会员', icon: 'fas fa-user-circle' }
 ]
 
 const handleTabClick = (tab: string) => {

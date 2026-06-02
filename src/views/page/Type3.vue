@@ -1,3 +1,4 @@
+<!-- 低代码 componentKey: services_page -->
 <template>
   <div class="services-page">
     <div class="services-page__bg" aria-hidden="true">
@@ -6,31 +7,28 @@
     </div>
 
     <div class="services-page__container">
-      <header class="services-page__header">
-        <h1 class="services-page__title">服务矩阵</h1>
-        <p class="services-page__subtitle">按分类浏览服务项目与动态</p>
+      <header v-if="!isEmptyState" class="services-page__header">
+        <h1 class="services-page__title">{{ pageTitle }}</h1>
+        <p v-if="subtitle" class="services-page__subtitle">{{ subtitle }}</p>
       </header>
 
-      <nav class="services-page__tabs" aria-label="服务分类">
-        <button
+      <nav v-if="categories.length > 1" class="services-page__tabs" aria-label="分类">
+        <router-link
           v-for="cat in categories"
           :key="cat.key"
-          type="button"
+          :to="cat.path"
           class="tab-btn"
-          :class="{ 'tab-btn--active': cat.key === activeCategory }"
-          @click="activeCategory = cat.key"
+          :class="{ 'tab-btn--active': cat.key === activeKey }"
         >
           {{ cat.label }}
-        </button>
+        </router-link>
       </nav>
 
-      <Transition name="fade" mode="out-in">
-        <div :key="activeCategory" class="block-grid">
-          <article
-            v-for="item in currentItems"
-            :key="item.id"
-            class="content-block"
-          >
+      <div v-if="loading" class="services-page__loading">加载中…</div>
+
+      <Transition v-else name="fade" mode="out-in">
+        <div v-if="currentItems.length" :key="activeKey" class="block-grid">
+          <article v-for="item in currentItems" :key="item.id" class="content-block">
             <router-link :to="contentPath(item.id)" class="content-block__link">
               <div v-if="coverSrc(item)" class="content-block__cover">
                 <img :src="coverSrc(item)" :alt="item.title" loading="lazy" />
@@ -59,163 +57,96 @@
             </router-link>
           </article>
         </div>
+        <Empty v-else :key="`empty-${activeKey}`" />
       </Transition>
-
-      <p v-if="!currentItems.length" class="services-page__empty">该分类暂无内容</p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
+import Empty from '@/views/page/Empty.vue'
+import { fetchNewsListByCategoryId } from '@/api/news'
+import { usePageContext } from '@/composables/usePageContext'
+import { buildNewsCategoryPath, parseCategoryIdFromRoute } from '@/utils/newsCategoryRoute'
 import type { NewsItem } from '@/types/news'
 import { contentPath } from '@/utils/contentRoute'
+import { normalizePagePath } from '@/utils/paths'
+
+const props = defineProps<{
+  title?: string
+  subtitle?: string
+}>()
 
 interface ServiceCategory {
   key: string
   label: string
+  path: string
   categoryId: number
 }
 
-const categories: ServiceCategory[] = [
-  { key: 'consulting', label: '科技咨询', categoryId: 1 },
-  { key: 'training', label: '技术培训', categoryId: 2 },
-  { key: 'project', label: '项目申报', categoryId: 3 },
-  { key: 'transformation', label: '成果转化', categoryId: 4 }
-]
+const { route, page, pageId, activeCategory: routeCategory, newsCategoryStore } = usePageContext()
 
-/** 占位数据：结构与 GET /news 单条 JSON 一致 */
-const mockItems: NewsItem[] = [
-  {
-    id: 1,
-    categoryId: 1,
-    title: '2026年学术年会成功举办',
-    summary: '近日，2026年学术年会在北京成功举办……',
-    content: '<p>详细内容...</p>',
-    coverImage: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=640&h=360&fit=crop',
-    publishTime: '2026-04-10T09:00:00',
-    source: '学会秘书处',
-    author: '张三',
-    status: true,
-    isTop: true,
-    viewCount: 1216,
-    remark: null,
-    createdAt: '2026-04-28T20:55:12',
-    updatedAt: '2026-05-30T22:52:05'
-  },
-  {
-    id: 2,
-    categoryId: 1,
-    title: '云南省 AI 产业「十五五」规划专家咨询报告发布',
-    summary: '报告系统梳理了云南省人工智能产业发展现状与趋势，提出重点布局建议。',
-    content: '<p>详细内容...</p>',
-    coverImage: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=640&h=360&fit=crop',
-    publishTime: '2026-03-08T14:30:00',
-    source: '科技咨询部',
-    author: '李四',
-    status: true,
-    isTop: false,
-    viewCount: 856,
-    remark: null,
-    createdAt: '2026-03-08T10:00:00',
-    updatedAt: '2026-03-08T10:00:00'
-  },
-  {
-    id: 3,
-    categoryId: 2,
-    title: '2026 春季「大模型应用开发」专题培训班招生通知',
-    summary: '面向高校师生与企业工程师，涵盖 RAG、Agent 与微调实战。',
-    content: '<p>详细内容...</p>',
-    coverImage: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=640&h=360&fit=crop',
-    publishTime: '2026-03-01T09:00:00',
-    source: '培训部',
-    author: '王五',
-    status: true,
-    isTop: true,
-    viewCount: 2340,
-    remark: null,
-    createdAt: '2026-03-01T08:00:00',
-    updatedAt: '2026-03-01T08:00:00'
-  },
-  {
-    id: 4,
-    categoryId: 2,
-    title: '昇腾 AI 全栈实战训练营（昆明站）圆满结业',
-    summary: '50 名学员完成昇腾算力平台部署与大模型推理优化实训。',
-    content: '<p>详细内容...</p>',
-    coverImage: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=640&h=360&fit=crop',
-    publishTime: '2026-02-14T16:00:00',
-    source: '培训部',
-    author: '赵六',
-    status: true,
-    isTop: false,
-    viewCount: 672,
-    remark: null,
-    createdAt: '2026-02-14T16:00:00',
-    updatedAt: '2026-02-14T16:00:00'
-  },
-  {
-    id: 5,
-    categoryId: 3,
-    title: '2026 年度国家自然科学基金 AI 专项申报辅导启动',
-    summary: '提供选题论证、材料撰写与答辩模拟全流程辅导服务。',
-    content: '<p>详细内容...</p>',
-    coverImage: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=640&h=360&fit=crop',
-    publishTime: '2026-02-25T10:00:00',
-    source: '项目服务部',
-    author: '钱七',
-    status: true,
-    isTop: false,
-    viewCount: 1089,
-    remark: null,
-    createdAt: '2026-02-25T10:00:00',
-    updatedAt: '2026-02-25T10:00:00'
-  },
-  {
-    id: 6,
-    categoryId: 4,
-    title: '「云智医联」AI 辅助诊断成果路演暨对接会',
-    summary: '促成 3 项医疗 AI 成果与产业资本现场签约意向。',
-    content: '<p>详细内容...</p>',
-    coverImage: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=640&h=360&fit=crop',
-    publishTime: '2026-03-05T09:30:00',
-    source: '成果转化部',
-    author: '孙八',
-    status: true,
-    isTop: true,
-    viewCount: 1567,
-    remark: null,
-    createdAt: '2026-03-05T09:30:00',
-    updatedAt: '2026-03-05T09:30:00'
-  }
-]
+const categories = ref<ServiceCategory[]>([])
+const currentItems = ref<NewsItem[]>([])
+const loading = ref(false)
 
-const route = useRoute()
+const pageTitle = computed(
+  () =>
+    props.title?.trim() ||
+    page.value?.title ||
+    page.value?.name ||
+    (route.meta.pageTitle as string) ||
+    '服务'
+)
 
-function resolveCategoryFromQuery(): string {
-  const raw = route.query.section ?? route.query.category
-  const key = Array.isArray(raw) ? raw[0] : raw
-  if (typeof key === 'string' && categories.some((c) => c.key === key)) return key
-  return categories[0]!.key
+const activeKey = computed(() => {
+  const fromRoute = parseCategoryIdFromRoute(route)
+  if (fromRoute > 0) return String(fromRoute)
+  if (routeCategory.value) return String(routeCategory.value.id)
+  return categories.value[0]?.key ?? ''
+})
+
+const activeTab = computed(() =>
+  categories.value.find((cat) => cat.key === activeKey.value)
+)
+
+const activeCategoryId = computed(() => activeTab.value?.categoryId ?? -1)
+
+const isEmptyState = computed(() => !loading.value && currentItems.value.length === 0)
+
+function buildCategoriesFromStore(): ServiceCategory[] {
+  const id = pageId.value
+  if (id == null) return []
+
+  const base = normalizePagePath(page.value?.path ?? route.path)
+  return newsCategoryStore.listForPage(id).map((category) => ({
+    key: String(category.id),
+    label: category.name,
+    path: buildNewsCategoryPath(base, category.id),
+    categoryId: category.id
+  }))
 }
 
-const activeCategory = ref(resolveCategoryFromQuery())
+async function refreshCategories() {
+  await newsCategoryStore.ensureLoaded()
+  categories.value = buildCategoriesFromStore()
+}
 
-watch(
-  () => route.query,
-  () => {
-    activeCategory.value = resolveCategoryFromQuery()
+async function loadItems() {
+  const categoryId = activeCategoryId.value
+  if (categoryId <= 0) {
+    currentItems.value = []
+    return
   }
-)
 
-const activeCategoryId = computed(
-  () => categories.find((c) => c.key === activeCategory.value)?.categoryId ?? 1
-)
-
-const currentItems = computed(() =>
-  mockItems.filter((item) => item.categoryId === activeCategoryId.value)
-)
+  loading.value = true
+  try {
+    currentItems.value = await fetchNewsListByCategoryId(categoryId)
+  } finally {
+    loading.value = false
+  }
+}
 
 function coverSrc(item: NewsItem): string {
   const raw = item.coverImage?.trim()
@@ -228,6 +159,21 @@ function formatDate(value: string): string {
   if (value.length >= 10) return value.substring(0, 10)
   return value
 }
+
+onMounted(() => {
+  void refreshCategories()
+})
+
+watch(activeCategoryId, () => {
+  void loadItems()
+}, { immediate: true })
+
+watch(
+  () => pageId.value,
+  () => {
+    void refreshCategories()
+  }
+)
 </script>
 
 <style scoped>
@@ -240,6 +186,7 @@ function formatDate(value: string): string {
   background: #f6f8fb;
   padding: 48px 0 80px;
   overflow: hidden;
+  margin: -30px -40px;
 }
 
 .services-page__bg {
@@ -314,6 +261,7 @@ function formatDate(value: string): string {
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s ease;
+  text-decoration: none;
 }
 
 .tab-btn:hover {
@@ -328,7 +276,13 @@ function formatDate(value: string): string {
   font-weight: 600;
 }
 
-/* 块状网格 */
+.services-page__loading {
+  text-align: center;
+  padding: 48px;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
 .block-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -449,13 +403,6 @@ function formatDate(value: string): string {
   opacity: 0.7;
 }
 
-.services-page__empty {
-  text-align: center;
-  padding: 48px;
-  color: #94a3b8;
-  font-size: 14px;
-}
-
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.2s ease;
@@ -467,6 +414,10 @@ function formatDate(value: string): string {
 }
 
 @media (max-width: 768px) {
+  .services-page {
+    margin: -24px -16px;
+  }
+
   .block-grid {
     grid-template-columns: 1fr;
   }

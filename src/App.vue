@@ -7,7 +7,7 @@ import Footer from './components/layout/Footer.vue';
 
 const route = useRoute();
 const isUserCenter = computed(() => route.path === '/user');
-const isLoginPage = computed(() => route.path === '/login');
+const isLoginPage = computed(() => route.path === '/login' || route.path === '/apply');
 const hideChrome = computed(() => isUserCenter.value || isLoginPage.value);
 </script>
 

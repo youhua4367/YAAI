@@ -1,41 +1,47 @@
 import axios from 'axios'
-import type { AxiosInstance, AxiosResponse } from 'axios'
-import type { InternalAxiosRequestConfig } from 'axios'
+import type { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import { ElMessage } from 'element-plus'
-import router from '@/router'
+import { LOGIN_PATH } from '@/constants/authPaths'
 import { useTokenStore } from '@/stores/token'
 import type { Result } from '@/types/result'
+
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    /** 业务错误码命中时不弹出 ElMessage（仍会 reject） */
+    silentErrorCodes?: string[]
+  }
+}
 
 const request: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   timeout: 10000
 })
 
-// 请求拦截器
 request.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const tokenStore = useTokenStore()
     if (tokenStore.token) {
-      config.headers.Authorization = `Bearer ${tokenStore.token}`
+      const headerName = tokenStore.tokenName || 'yaai'
+      config.headers[headerName] = tokenStore.token
     }
     return config
   },
-  (error) => {
-    return Promise.reject(error)
-  }
+  (error) => Promise.reject(error)
 )
 
-// 响应拦截器
 request.interceptors.response.use(
   (response: AxiosResponse<Result>) => {
     const result = response.data
+    const silentCodes = response.config.silentErrorCodes ?? []
 
     if (result.success) {
       return result as any
-    } else {
-      ElMessage.error(result.message)
-      return Promise.reject(result)
     }
+
+    if (!silentCodes.includes(String(result.code ?? ''))) {
+      ElMessage.error(result.message)
+    }
+    return Promise.reject(result)
   },
   (error) => {
     const tokenStore = useTokenStore()
@@ -43,7 +49,9 @@ request.interceptors.response.use(
     if (error.response?.status === 401) {
       ElMessage.error('未登录，请重新登录')
       tokenStore.removeToken()
-      router.push('/login')
+      void import('@/router').then(({ default: router }) => {
+        void router.push(LOGIN_PATH)
+      })
       return Promise.reject(error)
     }
 

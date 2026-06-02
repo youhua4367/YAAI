@@ -3,23 +3,24 @@
     <div class="card-header">
       <div class="title-area">
         <span class="decorator"></span>
-        <h3>学会活动</h3>
+        <h3 v-if="sectionTitle">{{ sectionTitle }}</h3>
       </div>
-      <router-link to="/conference" class="more-btn">
+      <router-link v-if="moreLink" :to="moreLink" class="more-btn">
         更多精彩 <span class="arrow">→</span>
       </router-link>
     </div>
 
-    <div class="events-grid">
-      <router-link 
-        v-for="(event, index) in events" 
-        :key="index"
+    <div v-if="loading" class="events-loading">加载中…</div>
+    <div v-else-if="events.length" class="events-grid">
+      <router-link
+        v-for="event in events"
+        :key="event.id"
         :to="event.link"
         class="event-card"
       >
         <div class="event-image-box">
-          <img :src="event.image" :alt="event.title">
-          <div class="event-tag">学术会议</div>
+          <img :src="event.image" :alt="event.title" loading="lazy" />
+          <div class="event-tag">{{ eventTag }}</div>
           <div class="image-overlay">
             <span class="view-btn">查看详情</span>
           </div>
@@ -28,46 +29,91 @@
         <div class="event-content">
           <h4 class="event-title">{{ event.title }}</h4>
           <div class="event-meta">
-            <p class="meta-item">
-              <i class="calendar-icon"></i>
-              {{ event.date }}
-            </p>
-            <p class="meta-item">
-              <i class="location-icon"></i>
-              {{ event.location }}
-            </p>
+            <p v-if="event.date" class="meta-item">{{ event.date }}</p>
+            <p v-if="event.location" class="meta-item">{{ event.location }}</p>
           </div>
         </div>
       </router-link>
     </div>
+    <el-empty v-else description="暂无活动" />
   </div>
 </template>
 
 <script setup lang="ts">
-/** 活动详情走会议/活动模块，与本地 detailData 脱钩 */
-const events = [
-  {
-    title: '2026年云南人工智能学术研讨会',
-    date: '2026-04-15 至 2026-04-17',
-    location: '昆明市·云南大学呈贡校区',
-    image: 'https://images.unsplash.com/photo-1555949963-aa79dcee981c',
-    link: '/conference'
-  },
-  {
-    title: '人工智能与教育融合发展论坛',
-    date: '2026-03-25',
-    location: '昆明市·云南师范大学',
-    image: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f',
-    link: '/conference'
-  },
-  {
-    title: '智能医疗技术研讨会',
-    date: '2026-03-20',
-    location: '昆明市·昆明医科大学',
-    image: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789',
-    link: '/conference'
+import { computed, onMounted, ref, watch } from 'vue'
+import { fetchNewsByIds } from '@/api/news'
+import type { HomeEventDisplayItem } from '@/types/homeSection'
+import type { NewsItem } from '@/types/news'
+import { contentPath } from '@/utils/contentRoute'
+import { normalizeContentIds } from '@/utils/contentIds'
+import { resolveSectionTitle } from '@/utils/sectionTitle'
+
+const props = defineProps<{
+  nodeName?: string
+  title?: string
+  moreLink?: string
+  tag?: string
+  contentIds?: number[]
+}>()
+
+const DEFAULT_IMAGE =
+  'https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=800&h=450&fit=crop'
+
+const loading = ref(false)
+const events = ref<HomeEventDisplayItem[]>([])
+
+const sectionTitle = computed(() => resolveSectionTitle(props.nodeName, props.title))
+const moreLink = computed(() => props.moreLink?.trim() || '/conference')
+const eventTag = computed(() => props.tag?.trim() || '学术会议')
+const ids = computed(() => normalizeContentIds(props.contentIds))
+
+function coverSrc(raw: string | null | undefined): string {
+  const text = raw?.trim()
+  if (!text) return DEFAULT_IMAGE
+  if (/^https?:\/\//i.test(text)) return text
+  return text.startsWith('/') ? text : `/${text}`
+}
+
+function formatEventDate(value: string | null | undefined): string {
+  if (!value) return ''
+  return value.length >= 10 ? value.substring(0, 10) : value
+}
+
+function mapNewsToEvent(item: NewsItem): HomeEventDisplayItem {
+  return {
+    id: item.id,
+    title: item.title?.trim() || '活动',
+    date: formatEventDate(item.publishTime),
+    location: item.source?.trim() || '',
+    image: coverSrc(item.coverImage),
+    link: contentPath(item.id)
   }
-]
+}
+
+async function loadEvents() {
+  if (!ids.value.length) {
+    events.value = []
+    return
+  }
+
+  loading.value = true
+  try {
+    const list = await fetchNewsByIds(ids.value)
+    events.value = list.map(mapNewsToEvent)
+  } catch {
+    events.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  void loadEvents()
+})
+
+watch(ids, () => {
+  void loadEvents()
+})
 </script>
 
 <style scoped>
@@ -78,7 +124,6 @@ const events = [
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
 }
 
-/* --- 头部设计 --- */
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -118,7 +163,13 @@ const events = [
   color: #0c4da2;
 }
 
-/* --- 网格设计 --- */
+.events-loading {
+  padding: 48px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
 .events-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -126,7 +177,6 @@ const events = [
   padding: 24px;
 }
 
-/* --- 活动卡片个体 --- */
 .event-card {
   display: flex;
   flex-direction: column;
@@ -144,7 +194,6 @@ const events = [
   border-color: rgba(12, 77, 162, 0.2);
 }
 
-/* --- 图片区域 --- */
 .event-image-box {
   position: relative;
   height: 180px;
@@ -162,7 +211,6 @@ const events = [
   transform: scale(1.1);
 }
 
-/* 图片上方的小标签 */
 .event-tag {
   position: absolute;
   top: 12px;
@@ -177,7 +225,6 @@ const events = [
   z-index: 2;
 }
 
-/* 悬浮时的遮罩按钮效果 */
 .image-overlay {
   position: absolute;
   inset: 0;
@@ -201,7 +248,6 @@ const events = [
   border-radius: 50px;
 }
 
-/* --- 内容区域 --- */
 .event-content {
   padding: 20px;
   flex: 1;
@@ -213,7 +259,7 @@ const events = [
   font-weight: 600;
   color: #334155;
   line-height: 1.5;
-  height: 48px; /* 固定两行高度，确保整齐 */
+  height: 48px;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   overflow: hidden;
@@ -238,16 +284,13 @@ const events = [
   align-items: center;
 }
 
-/* 这里由于没引用图标库，用CSS模拟点/线，
-   你可以替换为 Element-plus 的图标或是 FontAwesome */
 .meta-item::before {
-  content: "•";
+  content: '•';
   color: #0c4da2;
   margin-right: 8px;
   font-weight: bold;
 }
 
-/* --- 响应式 --- */
 @media (max-width: 1024px) {
   .events-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -259,6 +302,7 @@ const events = [
     grid-template-columns: 1fr;
     padding: 16px;
   }
+
   .event-image-box {
     height: 200px;
   }

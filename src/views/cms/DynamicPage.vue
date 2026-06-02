@@ -50,16 +50,15 @@ import { fetchPageNodeTree } from '@/api/public-node-tree'
 import HomeDynamicContent from '@/views/home/HomeDynamicContent.vue'
 import NodeRenderer from '@/components/lowcode/NodeRenderer.vue'
 import SidebarLayout from '@/components/layout/SidebarLayout.vue'
-import { useSiteMenusStore } from '@/stores/siteMenus'
+import { useNewsCategoryStore } from '@/stores/newsCategory'
 import { useSitePagesStore } from '@/stores/sitePages'
 import type { PageNodeTreeNode } from '@/types/lowcode'
 import { pickRootNode } from '@/utils/buildNodeTree'
-import { isNewsPageCode } from '@/utils/newsCategoryRoute'
 import { normalizePagePath } from '@/utils/paths'
 
 const route = useRoute()
 const sitePagesStore = useSitePagesStore()
-const siteMenusStore = useSiteMenusStore()
+const newsCategoryStore = useNewsCategoryStore()
 
 const loading = ref(false)
 const loadError = ref<string | null>(null)
@@ -98,8 +97,7 @@ const useSidebarShell = computed(() => {
   const p = page.value
   if (!p) return false
   if (p.pageType === 'channel' || p.pageType === 'single') return true
-  if (isNewsPageCode(p.code)) return true
-  return siteMenusStore.submenusForPage(p.id, true).length > 0
+  return newsCategoryStore.hasCategoriesForPage(p.id)
 })
 
 const isEmbeddedInSidebar = computed(

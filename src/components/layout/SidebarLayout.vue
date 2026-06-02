@@ -55,10 +55,7 @@ import { useNewsCategoryStore } from '@/stores/newsCategory'
 import { useSiteMenusStore } from '@/stores/siteMenus'
 import { useSitePagesStore } from '@/stores/sitePages'
 import { isSameMenuPath } from '@/utils/menuPath'
-import {
-  isNewsPageCode,
-  parseCategoryIdFromRoute
-} from '@/utils/newsCategoryRoute'
+import { parseCategoryIdFromRoute } from '@/utils/newsCategoryRoute'
 import { normalizePagePath } from '@/utils/paths'
 
 const props = defineProps<{
@@ -75,44 +72,28 @@ const sidebarItems = ref<{ name: string; path: string }[]>([])
 
 const page = computed(() => sitePagesStore.pageById(props.pageId))
 
-const groupTitle = computed(() => page.value?.name ?? '栏目')
-
-const isNewsPage = computed(() => isNewsPageCode(page.value?.code))
+const groupTitle = computed(() => {
+  const root = siteMenusStore.rootMenuForPage(props.pageId)
+  return root?.name ?? page.value?.name ?? '栏目'
+})
 
 const pageBasePath = computed(() =>
   page.value ? normalizePagePath(page.value.path) : ''
 )
 
 async function refreshSidebar() {
-  if (isNewsPage.value) {
-    await newsCategoryStore.ensureLoaded()
-    sidebarItems.value = newsCategoryStore.sidebarItemsForPage(pageBasePath.value)
-    return
-  }
-
-  await siteMenusStore.ensureLoaded()
-  sidebarItems.value = siteMenusStore.sidebarItemsForPage(props.pageId)
+  await Promise.all([siteMenusStore.ensureLoaded(), newsCategoryStore.ensureLoaded()])
+  sidebarItems.value = newsCategoryStore.sidebarItemsForPage(props.pageId)
 }
 
 async function redirectToFirstSubmenuIfNeeded() {
   const base = pageBasePath.value
   if (!base) return
-
-  if (isNewsPage.value) {
-    if (!isSameMenuPath(route.path, base)) return
-    if (parseCategoryIdFromRoute(route) > 0) return
-
-    const target = sidebarItems.value[0]?.path
-    if (target && !isSameMenuPath(route.fullPath, target)) {
-      await router.replace(target)
-    }
-    return
-  }
-
-  if (!isSameMenuPath(route.fullPath, base)) return
+  if (!isSameMenuPath(route.path, base)) return
+  if (parseCategoryIdFromRoute(route) > 0) return
 
   const target = sidebarItems.value[0]?.path
-  if (target && !target.startsWith('http') && !isSameMenuPath(route.fullPath, target)) {
+  if (target && !isSameMenuPath(route.fullPath, target)) {
     await router.replace(target)
   }
 }

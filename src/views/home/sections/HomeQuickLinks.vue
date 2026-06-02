@@ -8,7 +8,7 @@
             <path d="M12 1v6m0 6v6m4.22-10.22l4.24-4.24M6.34 17.66l-4.24 4.24M23 12h-6m-6 0H1m20.24 4.24l-4.24-4.24M6.34 6.34L2.1 2.1"></path>
           </svg>
         </div>
-        <h3>快速入口</h3>
+        <h3 v-if="sectionTitle">{{ sectionTitle }}</h3>
       </div>
     </div>
 
@@ -45,6 +45,14 @@ import { computed } from 'vue'
 import { useSiteMenusStore } from '@/stores/siteMenus'
 import { useSitePagesStore } from '@/stores/sitePages'
 import type { SitePage } from '@/types/sitePage'
+import { resolveSectionTitle } from '@/utils/sectionTitle'
+
+const props = defineProps<{
+  nodeName?: string
+  title?: string
+}>()
+
+const sectionTitle = computed(() => resolveSectionTitle(props.nodeName, props.title))
 
 /** 固定入口：始终排在最后，与 Header 会员入口一致 */
 const STATIC_QUICK_LINKS: QuickLinkItem[] = [

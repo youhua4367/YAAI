@@ -4,7 +4,8 @@ import { fetchMenus } from '@/api/menu'
 import type { SiteMenu } from '@/types/menu'
 import type { SitePage } from '@/types/sitePage'
 import { useSitePagesStore } from '@/stores/sitePages'
-import { isSameMenuPath, resolveMenuPath } from '@/utils/menuPath'
+import { useNewsCategoryStore } from '@/stores/newsCategory'
+import { resolveMenuPath } from '@/utils/menuPath'
 import { isPathUnderModule, normalizePagePath } from '@/utils/paths'
 import type { NavMenuItem } from '@/utils/sitePageNav'
 
@@ -37,10 +38,7 @@ export const useSiteMenusStore = defineStore('siteMenus', () => {
   }
 
   /**
-   * 某页面下的子菜单：
-   * - pageId 与页面一致（同一页面）
-   * - parentId 指向该页面的根菜单 id（树层级）
-   * - 可选仅启用项
+   * @deprecated 子项已改为 news_category（parentId = 根菜单 id），请用 newsCategoryStore.listForPage
    */
   function submenusForPage(pageId: number, onlyEnabled = true): SiteMenu[] {
     const root = rootMenuForPage(pageId)
@@ -57,20 +55,9 @@ export const useSiteMenusStore = defineStore('siteMenus', () => {
     )
   }
 
-  /**
-   * 首页新闻双栏：遍历启用页面（按 pageId 升序），依次收集各页子菜单，取前 limit 项
-   */
-  function pickHomeNewsSubmenus(limit = 2): SiteMenu[] {
-    const sitePages = useSitePagesStore()
-    const pages = [...sitePages.enabledPages].sort((a, b) => a.id - b.id)
-    const picked: SiteMenu[] = []
-    for (const page of pages) {
-      for (const menu of submenusForPage(page.id, true)) {
-        picked.push(menu)
-        if (picked.length >= limit) return picked
-      }
-    }
-    return picked
+  /** 首页新闻双栏：取前 N 个 news_category */
+  function pickHomeNewsSubmenus(limit = 2) {
+    return useNewsCategoryStore().pickHomeCategories(limit)
   }
 
   function childrenOf(parentMenuId: number, onlyEnabled = true): SiteMenu[] {
@@ -92,41 +79,26 @@ export const useSiteMenusStore = defineStore('siteMenus', () => {
     return resolveMenuPath(menu, sitePages.pages)
   }
 
-  /** 根据当前路由匹配同 pageId 下的子菜单（路径来自 externalUrl） */
+  /** 根据当前路由匹配该页根菜单下的 news_category */
   function findSubmenuByRoute(
     pageId: number,
     fullPath: string
-  ): SiteMenu | undefined {
-    const sitePages = useSitePagesStore()
-    const pages = sitePages.pages
-    return submenusForPage(pageId, true).find((menu) =>
-      isSameMenuPath(resolveMenuPath(menu, pages), fullPath)
-    )
-  }
-
-  function toNavLinks(
-    list: SiteMenu[],
-    pages: SitePage[]
-  ): { name: string; path: string }[] {
-    return list.map((menu) => ({
-      name: menu.name,
-      path: resolveMenuPath(menu, pages)
-    }))
+  ) {
+    return useNewsCategoryStore().findCategoryByRoute(pageId, fullPath)
   }
 
   function sidebarItemsForPage(pageId: number): { name: string; path: string }[] {
-    const sitePages = useSitePagesStore()
-    return toNavLinks(submenusForPage(pageId, true), sitePages.pages)
+    return useNewsCategoryStore().sidebarItemsForPage(pageId)
   }
 
-  function navChildrenForPage(pageId: number, pages: SitePage[]): NavMenuItem['children'] {
-    const children = toNavLinks(submenusForPage(pageId, true), pages)
+  function navChildrenForPage(pageId: number): NavMenuItem['children'] {
+    const children = sidebarItemsForPage(pageId)
     return children.length ? children : undefined
   }
 
   function navLinkForPage(page: SitePage, pages: SitePage[]): string {
     const root = rootMenuForPage(page.id)
-    const children = navChildrenForPage(page.id, pages)
+    const children = navChildrenForPage(page.id)
 
     if (children?.length) {
       if (root && !root.status) return children[0]!.path
@@ -137,7 +109,7 @@ export const useSiteMenusStore = defineStore('siteMenus', () => {
     return normalizePagePath(page.path)
   }
 
-  /** 顶栏：GET /pages 出主项；下拉子项来自同 pageId 的子菜单 */
+  /** 顶栏：GET /pages 出主项；下拉子项来自 news_category（parentId = 根菜单 id） */
   const topNavItems = computed<NavMenuItem[]>(() => {
     const sitePages = useSitePagesStore()
     const pages = sitePages.enabledPages.filter((p) => NAV_PAGE_TYPES.has(p.pageType))
@@ -150,7 +122,7 @@ export const useSiteMenusStore = defineStore('siteMenus', () => {
         path: navLinkForPage(page, pages),
         code: page.code,
         pageId: page.id,
-        children: navChildrenForPage(page.id, pages)
+        children: navChildrenForPage(page.id)
       }
     })
   })

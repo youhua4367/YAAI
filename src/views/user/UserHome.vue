@@ -1,44 +1,45 @@
 <!-- 会员中心首页 -->
 <template>
   <div class="home-page">
-    <!-- 欢迎区域 -->
     <div class="welcome-section">
       <div class="welcome-content">
         <div class="user-info">
           <div class="avatar">
-            <i class="fas fa-user-circle"></i>
+            <img v-if="memberSingle?.img" :src="memberSingle.img" alt="头像" class="avatar-img" />
+            <i v-else class="fas fa-user-circle"></i>
           </div>
           <div class="user-details">
-            <h3 class="welcome-text">欢迎您，张雅健</h3>
+            <h3 class="welcome-text">欢迎您，{{ displayName }}</h3>
             <p class="membership-info">
-              所属机构：中国人工智能学会<br>
-              入会时间：2024-01-01<br>
-              入会状态：<span class="status paid">待支付</span><br>
-              到期时间：未设置
+              工作单位：<ProfileField :value="memberSingle?.workUnit" /><br />
+              入会时间：<ProfileField :value="joinDateRaw" date /><br />
+              入会状态：<span class="status" :class="statusClass">{{ statusText }}</span><br />
+              最高学历：<ProfileField :value="memberSingle?.highestEducation" />
             </p>
             <div class="user-stats">
-              <span class="stat-item">当前级别：<strong>普通会员</strong></span>
-              <span class="stat-item">上次登录时间：<strong>2024-03-29</strong></span>
-              <span class="stat-item"><span class="badge premium">会员徽章</span></span>
+              <span class="stat-item">职务：<strong><ProfileField :value="memberSingle?.position" /></strong></span>
+              <span class="stat-item">职称：<strong><ProfileField :value="memberSingle?.jobTitle" /></strong></span>
+              <span class="stat-item">手机：<strong><ProfileField :value="memberSingle?.contactPhone" /></strong></span>
             </div>
           </div>
         </div>
-        
+
         <div class="quick-hint">
-          <p>使用左侧菜单可查看 <strong>缴费订单</strong> 与 <strong>个人资料</strong>。</p>
+          <p v-if="notFilled">您尚未完善<strong>个人会员</strong>档案，请前往「个人会员」补充信息。</p>
+          <p v-else>使用左侧菜单可查看 <strong>缴费订单</strong> 与 <strong>个人会员</strong>资料。</p>
         </div>
       </div>
-      
-      <div class="membership-tips">
+
+      <div v-if="showPaymentTip" class="membership-tips">
         <div class="tip-item">
           <span class="tip-icon">💡</span>
           <span>入会申请已通过，请缴纳会费</span>
-          <button class="tip-btn">立即缴费</button>
+          <button class="tip-btn" type="button">立即缴费</button>
         </div>
       </div>
     </div>
-    
-    <!-- 通知公告 -->
+
+    <!-- 通知公告（暂保留静态占位） -->
     <div class="notice-section">
       <div class="section-header">
         <h4 class="section-title">通知公告</h4>
@@ -55,7 +56,22 @@
 </template>
 
 <script setup lang="ts">
-// 会员中心首页组件
+import { computed } from 'vue'
+import { storeToRefs } from 'pinia'
+import ProfileField from '@/components/common/ProfileField.vue'
+import { useMemberProfile } from '@/composables/useMemberProfile'
+import { useCurrentUserStore } from '@/stores/currentUser'
+import { userStatusClass, userStatusLabel } from '@/utils/memberDisplay'
+
+const { memberSingle, notFilled, displayName } = useMemberProfile()
+const { profile: userProfile } = storeToRefs(useCurrentUserStore())
+
+const statusText = computed(() => userStatusLabel(userProfile.value?.status))
+const statusClass = computed(() => userStatusClass(userProfile.value?.status))
+const joinDateRaw = computed(
+  () => memberSingle.value?.createdAt ?? userProfile.value?.createdAt ?? null
+)
+const showPaymentTip = computed(() => userProfile.value?.status === 1)
 </script>
 
 <style scoped>
@@ -99,6 +115,13 @@
   color: #fff;
   font-size: 40px;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .user-details {
@@ -126,13 +149,24 @@
   font-weight: 500;
 }
 
-.status.paid {
+.status.pending {
   color: #faad14;
   background: #fffbe6;
 }
 
+.status.paid {
+  color: #52c41a;
+  background: #f6ffed;
+}
+
+.status.default {
+  color: #64748b;
+  background: #f1f5f9;
+}
+
 .user-stats {
   display: flex;
+  flex-wrap: wrap;
   gap: 20px;
   font-size: 13px;
   color: #999;
@@ -143,18 +177,13 @@
   font-weight: 500;
 }
 
-.badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
+.stat-item strong :deep(.field-empty) {
+  color: #cbd5e1;
+  font-weight: 400;
 }
 
-.badge.premium {
-  color: #faad14;
-  background: #fffbe6;
-  border: 1px solid #ffe58f;
+.membership-info :deep(.field-empty) {
+  color: #cbd5e1;
 }
 
 .quick-hint {
@@ -283,7 +312,7 @@
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   .quick-hint {
     max-width: none;
     width: 100%;

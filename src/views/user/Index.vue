@@ -28,19 +28,28 @@
           </div>
 
           <div class="header-user">
-            <div class="user-profile">
-              <div class="avatar-group">
-                <img src="https://ui-avatars.com/api/?name=User&background=0c4da2&color=fff&size=40" alt="Avatar" />
-                <span class="status-dot"></span>
+            <el-dropdown trigger="click" @command="handleUserCommand">
+              <div class="user-profile">
+                <div class="avatar-group">
+                  <img :src="avatarUrl" :alt="displayName" />
+                  <span class="status-dot"></span>
+                </div>
+                <div class="user-meta">
+                  <span class="user-name">{{ displayName }}</span>
+                </div>
+                <div class="dropdown-trigger">
+                  <i class="fas fa-chevron-down"></i>
+                </div>
               </div>
-              <div class="user-meta">
-                <span class="user-name">张雅健</span>
-                <span class="user-role">正式会员</span>
-              </div>
-              <div class="dropdown-trigger">
-                <i class="fas fa-chevron-down"></i>
-              </div>
-            </div>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="logout" :disabled="loggingOut">
+                    <i class="fas fa-sign-out-alt dropdown-item-icon"></i>
+                    {{ loggingOut ? '退出中…' : '退出登录' }}
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </div>
         </div>
       </div>
@@ -70,31 +79,72 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import UserSidebar from './UserSidebar.vue';
-import UserHome from './UserHome.vue';
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import UserSidebar from './UserSidebar.vue'
+import UserHome from './UserHome.vue'
 import UserProfile from './UserProfile.vue'
 import MyOrders from './MyOrders.vue'
+import { logout } from '@/api/member'
+import { useMemberProfile } from '@/composables/useMemberProfile'
+import { LOGIN_PATH } from '@/constants/authPaths'
+import { useCurrentUserStore } from '@/stores/currentUser'
+import { useMemberProfileStore } from '@/stores/memberProfile'
+import { useTokenStore } from '@/stores/token'
 
-// 响应式状态逻辑（保持原有）
-const currentTab = ref('home');
-const isSidebarCollapsed = ref(false);
-const isHeaderCollapsed = ref(false);
+const router = useRouter()
+const tokenStore = useTokenStore()
+const currentUserStore = useCurrentUserStore()
+const memberProfileStore = useMemberProfileStore()
+const { displayName } = useMemberProfile()
+
+const avatarUrl = computed(() => {
+  const name = encodeURIComponent(displayName.value || '会员')
+  return `https://ui-avatars.com/api/?name=${name}&background=0c4da2&color=fff&size=40`
+})
+
+const currentTab = ref('home')
+const isSidebarCollapsed = ref(false)
+const isHeaderCollapsed = ref(false)
+const loggingOut = ref(false)
 
 const toggleSidebar = () => {
-  isSidebarCollapsed.value = !isSidebarCollapsed.value;
-  isHeaderCollapsed.value = !isHeaderCollapsed.value;
-};
+  isSidebarCollapsed.value = !isSidebarCollapsed.value
+  isHeaderCollapsed.value = !isHeaderCollapsed.value
+}
 
-// 计算当前 Tab 名称，用于面包屑显示
 const currentTabName = computed(() => {
   const map: Record<string, string> = {
     home: '首页',
     orders: '我的缴费',
-    profile: '我的资料'
+    profile: '个人会员'
   }
-  return map[currentTab.value] || '';
-});
+  return map[currentTab.value] || ''
+})
+
+async function handleLogout() {
+  if (loggingOut.value) return
+  loggingOut.value = true
+  try {
+    await logout()
+  } catch {
+    // 接口失败时也清除本地登录态
+  } finally {
+    tokenStore.removeToken()
+    currentUserStore.clearProfile()
+    memberProfileStore.clearMemberProfile()
+    loggingOut.value = false
+    ElMessage.success('已退出登录')
+    router.push(LOGIN_PATH)
+  }
+}
+
+function handleUserCommand(command: string) {
+  if (command === 'logout') {
+    void handleLogout()
+  }
+}
 </script>
 
 <style scoped>
@@ -203,10 +253,16 @@ const currentTabName = computed(() => {
   border: 2px solid #fff; border-radius: 50%;
 }
 
-.user-meta { display: flex; flex-direction: column; line-height: 1.2; }
+.user-meta { display: flex; align-items: center; }
 .user-name { font-size: 14px; font-weight: 600; color: var(--slate-800); }
-.user-role { font-size: 11px; color: var(--slate-500); }
 .dropdown-trigger { color: #cbd5e1; font-size: 10px; margin-left: 4px; }
+
+:deep(.dropdown-item-icon) {
+  margin-right: 8px;
+  width: 14px;
+  text-align: center;
+  color: var(--slate-500);
+}
 
 /* --- 内容布局 --- */
 .user-content {

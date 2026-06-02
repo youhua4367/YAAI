@@ -4,7 +4,7 @@
       <div class="card-header">
         <div class="header-main">
           <span class="title-icon blue"></span>
-          <h3>{{ panelTitle }}</h3>
+          <h3 v-if="panelTitle">{{ panelTitle }}</h3>
         </div>
         <router-link :to="morePath" class="more-link">更多</router-link>
       </div>
@@ -27,9 +27,16 @@ import type { NewsItem } from '@/types/news'
 import { fetchLatestNews } from '@/api/news'
 import { useSitePaths } from '@/composables/useSitePaths'
 import { contentPath } from '@/utils/contentRoute'
+import { resolveSectionTitle } from '@/utils/sectionTitle'
 
 const LIST_LIMIT = 10
-const panelTitle = '新闻动态'
+
+const props = defineProps<{
+  nodeName?: string
+  title?: string
+}>()
+
+const panelTitle = computed(() => resolveSectionTitle(props.nodeName, props.title))
 
 const { newsListPath } = useSitePaths()
 const items = ref<NewsItem[]>([])

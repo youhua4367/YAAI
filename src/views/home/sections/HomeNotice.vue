@@ -9,7 +9,7 @@
           </svg>
           <span class="pulse-ring"></span>
         </div>
-        <h3>通知公告</h3>
+        <h3 v-if="sectionTitle">{{ sectionTitle }}</h3>
       </div>
       <router-link :to="noticeMorePath" class="more-link">
         <span class="more-text">更多</span>
@@ -52,8 +52,16 @@ import { fetchLatestNews } from '@/api/news'
 import { contentPath } from '@/utils/contentRoute'
 import { useSitePaths } from '@/composables/useSitePaths'
 import type { NewsItem } from '@/types/news'
+import { resolveSectionTitle } from '@/utils/sectionTitle'
 
 const NOTICE_COUNT = 5
+
+const props = defineProps<{
+  nodeName?: string
+  title?: string
+}>()
+
+const sectionTitle = computed(() => resolveSectionTitle(props.nodeName, props.title))
 
 const { newsListPath } = useSitePaths()
 

@@ -1,6 +1,8 @@
 /** `GET /news-categories` 列表项 */
 export interface NewsCategory {
   id: number
+  /** 所属顶栏菜单 id，对应 `GET /menus` 中根菜单的 `id` */
+  parentId: number | null
   name: string
   code?: string | null
   sortOrder?: number | null

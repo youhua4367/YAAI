@@ -1,4 +1,4 @@
-export const APPLY_STEPS = ['入会须知', '注册账号', '填写资料', '提交成功'] as const
+export const APPLY_STEPS = ['入会须知', '注册账号', '注册成功'] as const
 
 export const APPLY_LAYOUT = {
   logoAbbr: 'AI',
@@ -326,11 +326,11 @@ export const COMPANY_MEMBER_FORM_CONFIG = {
 
 export const APPLY_SUCCESS_CONFIG = {
   iconText: '✓',
-  title: '申请提交成功',
-  message: '您的会员申请已提交成功，请耐心等待审核。',
-  hint: '审核结果将通过短信和邮件通知您，请注意查收。',
+  title: '注册成功',
+  message: '账号已创建，请登录后在会员中心完善个人会员资料。',
+  hint: '登录后可前往会员中心「个人会员」填写并保存您的档案信息。',
   actions: [
-    { text: '返回首页', to: '/', type: 'primary' },
-    { text: '去登录', to: '/login', type: 'default' }
+    { text: '去登录', to: '/login', type: 'primary' },
+    { text: '返回首页', to: '/', type: 'default' }
   ]
 } as const
