@@ -11,14 +11,15 @@
         </div>
         <h3 v-if="sectionTitle">{{ sectionTitle }}</h3>
       </div>
-      <router-link :to="noticeMorePath" class="more-link">
+      <router-link v-if="moreLink" :to="moreLink" class="more-link">
         <span class="more-text">更多</span>
         <span class="more-arrow">+</span>
       </router-link>
     </div>
     
     <div class="notice-list-wrapper">
-      <ul v-if="notices.length" class="notice-list">
+      <p v-if="loading" class="notice-empty">加载中…</p>
+      <ul v-else-if="notices.length" class="notice-list">
         <li
           v-for="(item, index) in notices"
           :key="item.link"
@@ -38,7 +39,7 @@
           </router-link>
         </li>
       </ul>
-      <p v-else class="notice-empty">暂无新闻</p>
+      <p v-else class="notice-empty">暂无公告</p>
     </div>
     
     <!-- 装饰线条 -->
@@ -47,27 +48,26 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { fetchLatestNews } from '@/api/news'
+import { computed, onMounted, ref, watch } from 'vue'
+import { fetchNewsByIds } from '@/api/news'
 import { contentPath } from '@/utils/contentRoute'
-import { useSitePaths } from '@/composables/useSitePaths'
 import type { NewsItem } from '@/types/news'
+import { normalizeContentIds } from '@/utils/contentIds'
 import { resolveSectionTitle } from '@/utils/sectionTitle'
-
-const NOTICE_COUNT = 5
 
 const props = defineProps<{
   nodeName?: string
   title?: string
+  moreLink?: string
+  contentIds?: number[]
 }>()
 
 const sectionTitle = computed(() => resolveSectionTitle(props.nodeName, props.title))
+const moreLink = computed(() => props.moreLink?.trim() || '')
+const ids = computed(() => normalizeContentIds(props.contentIds))
 
-const { newsListPath } = useSitePaths()
-
+const loading = ref(false)
 const notices = ref<{ title: string; date: string; link: string }[]>([])
-
-const noticeMorePath = computed(() => newsListPath() || '/')
 
 function listDateYmd(publishTime: string | null | undefined): string {
   if (!publishTime || publishTime.length < 10) return ''
@@ -96,9 +96,28 @@ function mapNewsToNotices(list: NewsItem[]) {
   }))
 }
 
-onMounted(async () => {
-  const list = await fetchLatestNews(NOTICE_COUNT)
-  mapNewsToNotices(list)
+async function loadNotices() {
+  if (!ids.value.length) {
+    notices.value = []
+    return
+  }
+
+  loading.value = true
+  try {
+    mapNewsToNotices(await fetchNewsByIds(ids.value))
+  } catch {
+    notices.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  void loadNotices()
+})
+
+watch(ids, () => {
+  void loadNotices()
 })
 </script>
 

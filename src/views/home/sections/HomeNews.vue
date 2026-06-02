@@ -29,7 +29,7 @@ import { useSitePaths } from '@/composables/useSitePaths'
 import { contentPath } from '@/utils/contentRoute'
 import { resolveSectionTitle } from '@/utils/sectionTitle'
 
-const LIST_LIMIT = 10
+const LIST_LIMIT = 6
 
 const props = defineProps<{
   nodeName?: string

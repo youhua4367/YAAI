@@ -2,7 +2,7 @@
 <template>
   <Empty v-if="!loadingNews && !hasContent" />
   <article v-else-if="hasContent" class="article-page">
-    <figure v-if="article.coverImage" class="article-page__cover">
+    <figure v-if="!useStaticContent && article.coverImage" class="article-page__cover">
       <img :src="article.coverImage" :alt="article.title" loading="lazy" />
     </figure>
 
@@ -10,12 +10,12 @@
       <header class="article-page__head">
         <h1 class="article-page__title">{{ article.title }}</h1>
 
-        <p v-if="article.summary" class="article-page__summary">
+        <p v-if="!useStaticContent && article.summary" class="article-page__summary">
           <span class="summary-tag">摘要</span>
           {{ article.summary }}
         </p>
 
-        <div v-if="article.author || article.publishTime" class="article-page__meta">
+        <div v-if="!useStaticContent && (article.author || article.publishTime)" class="article-page__meta">
           <div v-if="article.author" class="meta-item">
             <span class="meta-label">作者</span>
             <span class="meta-val author-badge">{{ article.author }}</span>
@@ -29,7 +29,10 @@
 
       <div class="article-page__divider"></div>
 
-      <div class="article-page__body rich-text" v-html="article.content"></div>
+      <div v-if="useStaticContent" class="article-page__body rich-text">
+        <p>{{ staticContent }}</p>
+      </div>
+      <div v-else class="article-page__body rich-text" v-html="article.content"></div>
     </div>
   </article>
 </template>
@@ -40,11 +43,15 @@ import Empty from '@/views/page/Empty.vue'
 import { fetchNewsListByCategoryId } from '@/api/news'
 import { usePageContext } from '@/composables/usePageContext'
 import { parseCategoryIdFromRoute } from '@/utils/newsCategoryRoute'
+import { resolveSectionTitle } from '@/utils/sectionTitle'
 import type { NewsItem } from '@/types/news'
 
 const props = defineProps<{
+  nodeName?: string
   title?: string
-  /** 低代码 data_binding：可为 news_category.id */
+  /** propsJson 静态正文（如学会介绍页） */
+  content?: string
+  /** 低代码 data_binding：可为 news_category.id（无 content 时兜底） */
   dataBindingId?: number | null
 }>()
 
@@ -53,8 +60,13 @@ const { route, activeCategory } = usePageContext()
 const fetchedNews = ref<NewsItem | null>(null)
 const loadingNews = ref(false)
 
-/** 当前栏目 category.id（路由 query 或低代码绑定） */
+const staticContent = computed(() => props.content?.trim() ?? '')
+/** 有 propsJson.content 时直接展示，不按分类拉新闻 */
+const useStaticContent = computed(() => staticContent.value.length > 0)
+
+/** 当前栏目 category.id（仅无静态 content 时使用） */
 const categoryId = computed(() => {
+  if (useStaticContent.value) return -1
   const fromRoute = parseCategoryIdFromRoute(route)
   if (fromRoute > 0) return fromRoute
   if (activeCategory.value?.id) return activeCategory.value.id
@@ -74,15 +86,25 @@ function coverSrc(raw: string | null | undefined): string {
   return text.startsWith('/') ? text : `/${text}`
 }
 
-const displayTitle = computed(
-  () =>
-    props.title?.trim() ||
-    activeCategory.value?.name?.trim() ||
-    fetchedNews.value?.title?.trim() ||
-    '文章'
+const displayTitle = computed(() =>
+  resolveSectionTitle(
+    props.nodeName,
+    props.title?.trim() || activeCategory.value?.name?.trim() || fetchedNews.value?.title?.trim()
+  ) || '文章'
 )
 
 const article = computed(() => {
+  if (useStaticContent.value) {
+    return {
+      title: displayTitle.value,
+      summary: '',
+      author: '',
+      publishTime: '',
+      coverImage: '',
+      content: staticContent.value
+    }
+  }
+
   const news = fetchedNews.value
   if (!news) {
     return {
@@ -105,7 +127,9 @@ const article = computed(() => {
   }
 })
 
-const hasContent = computed(() => Boolean(article.value.content.trim()))
+const hasContent = computed(() =>
+  useStaticContent.value ? true : Boolean(article.value.content.trim())
+)
 
 async function loadFirstNewsInCategory() {
   const id = categoryId.value
@@ -125,9 +149,22 @@ async function loadFirstNewsInCategory() {
   }
 }
 
-watch(categoryId, () => {
-  void loadFirstNewsInCategory()
-}, { immediate: true })
+watch(
+  () => [categoryId.value, useStaticContent.value] as const,
+  ([id, isStatic]) => {
+    if (isStatic) {
+      fetchedNews.value = null
+      loadingNews.value = false
+      return
+    }
+    if (id <= 0) {
+      fetchedNews.value = null
+      return
+    }
+    void loadFirstNewsInCategory()
+  },
+  { immediate: true }
+)
 </script>
 
 <style scoped>
