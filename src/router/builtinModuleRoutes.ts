@@ -1,5 +1,6 @@
 import type { RouteRecordRaw } from 'vue-router'
 import { normalizePagePath } from '@/utils/paths'
+import { pageSkipsSidebarLayout } from '@/utils/pageLayout'
 import type { SitePage } from '@/types/sitePage'
 
 const CHANNEL_PAGE_TYPES = new Set(['channel', 'single'])
@@ -14,6 +15,8 @@ export function createBuiltinModuleRoute(
   page: SitePage,
   options: BuiltinModuleRouteOptions = {}
 ): RouteRecordRaw | null {
+  if (pageSkipsSidebarLayout(page)) return null
+
   if (CHANNEL_PAGE_TYPES.has(page.pageType) || options.hasSubmenus) {
     return createChannelModuleRoute(page)
   }

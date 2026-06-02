@@ -55,6 +55,8 @@ import type { NewsItem } from '@/types/news'
 import { normalizeContentIds } from '@/utils/contentIds'
 import { resolveSectionTitle } from '@/utils/sectionTitle'
 
+const NOTICE_LIMIT = 6
+
 const props = defineProps<{
   nodeName?: string
   title?: string
@@ -64,7 +66,7 @@ const props = defineProps<{
 
 const sectionTitle = computed(() => resolveSectionTitle(props.nodeName, props.title))
 const moreLink = computed(() => props.moreLink?.trim() || '')
-const ids = computed(() => normalizeContentIds(props.contentIds))
+const ids = computed(() => normalizeContentIds(props.contentIds).slice(0, NOTICE_LIMIT))
 
 const loading = ref(false)
 const notices = ref<{ title: string; date: string; link: string }[]>([])

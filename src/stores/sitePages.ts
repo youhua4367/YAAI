@@ -4,6 +4,7 @@ import type { Router } from 'vue-router'
 import { fetchPages } from '@/api/page'
 import type { SitePage } from '@/types/sitePage'
 import { normalizePagePath, shouldRegisterDynamicRoute } from '@/utils/sitePageNav'
+import { pageSkipsSidebarLayout } from '@/utils/pageLayout'
 import { createBuiltinModuleRoute } from '@/router/builtinModuleRoutes'
 import { useNewsCategoryStore } from '@/stores/newsCategory'
 
@@ -82,7 +83,8 @@ export const useSitePagesStore = defineStore('sitePages', () => {
     const newsCategoryStore = useNewsCategoryStore()
 
     for (const page of enabledPages.value) {
-      const hasSubmenus = newsCategoryStore.hasCategoriesForPage(page.id)
+      const hasSubmenus =
+        newsCategoryStore.hasCategoriesForPage(page.id) && !pageSkipsSidebarLayout(page)
       const routeOpts = { hasSubmenus }
 
       const builtin = createBuiltinModuleRoute(page, routeOpts)

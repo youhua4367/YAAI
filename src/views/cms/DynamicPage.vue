@@ -55,6 +55,10 @@ import { useSitePagesStore } from '@/stores/sitePages'
 import type { PageNodeTreeNode } from '@/types/lowcode'
 import { pickRootNode } from '@/utils/buildNodeTree'
 import { normalizePagePath } from '@/utils/paths'
+import {
+  componentKeySkipsSidebarLayout,
+  pageSkipsSidebarLayout
+} from '@/utils/pageLayout'
 
 const route = useRoute()
 const sitePagesStore = useSitePagesStore()
@@ -96,6 +100,8 @@ const useSidebarShell = computed(() => {
   if (isHomePage.value || isInsideSidebarShell.value) return false
   const p = page.value
   if (!p) return false
+  if (pageSkipsSidebarLayout(p)) return false
+  if (componentKeySkipsSidebarLayout(rootNode.value?.componentKey)) return false
   if (p.pageType === 'channel' || p.pageType === 'single') return true
   return newsCategoryStore.hasCategoriesForPage(p.id)
 })
