@@ -43,6 +43,10 @@
               </div>
               <template #dropdown>
                 <el-dropdown-menu>
+                  <el-dropdown-item command="changePassword">
+                    <i class="fas fa-key dropdown-item-icon"></i>
+                    修改密码
+                  </el-dropdown-item>
                   <el-dropdown-item command="logout" :disabled="loggingOut">
                     <i class="fas fa-sign-out-alt dropdown-item-icon"></i>
                     {{ loggingOut ? '退出中…' : '退出登录' }}
@@ -54,6 +58,15 @@
         </div>
       </div>
     </header>
+
+    <el-dialog
+      v-model="showChangePasswordDialog"
+      title="修改密码"
+      width="500px"
+      :close-on-click-modal="false"
+    >
+      <ChangePasswordForm @success="handlePasswordChanged" />
+    </el-dialog>
 
     <main class="user-content">
       <div class="content-container">
@@ -78,14 +91,14 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, computed } from 'vue'
+<script setup lang="ts">import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import UserSidebar from './UserSidebar.vue'
 import UserHome from './UserHome.vue'
 import UserProfile from './UserProfile.vue'
 import MyOrders from './MyOrders.vue'
+import ChangePasswordForm from '@/components/user/ChangePasswordForm.vue'
 import { logout } from '@/api/member'
 import { useMemberProfile } from '@/composables/useMemberProfile'
 import { LOGIN_PATH } from '@/constants/authPaths'
@@ -108,6 +121,7 @@ const currentTab = ref('home')
 const isSidebarCollapsed = ref(false)
 const isHeaderCollapsed = ref(false)
 const loggingOut = ref(false)
+const showChangePasswordDialog = ref(false)
 
 const toggleSidebar = () => {
   isSidebarCollapsed.value = !isSidebarCollapsed.value
@@ -140,9 +154,19 @@ async function handleLogout() {
   }
 }
 
+function handlePasswordChanged() {
+  showChangePasswordDialog.value = false
+  ElMessage.success('密码修改成功，请重新登录')
+  setTimeout(() => {
+    void handleLogout()
+  }, 1500)
+}
+
 function handleUserCommand(command: string) {
   if (command === 'logout') {
     void handleLogout()
+  } else if (command === 'changePassword') {
+    showChangePasswordDialog.value = true
   }
 }
 </script>

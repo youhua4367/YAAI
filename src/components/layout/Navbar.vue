@@ -8,7 +8,7 @@
           </div>
           <div class="titles">
             <h1>云南人工智能学会</h1>
-            <p>YNAI</p>
+            <p>YAAI</p>
           </div>
         </div>
 

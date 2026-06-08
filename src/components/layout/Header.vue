@@ -8,8 +8,6 @@
           <router-link :to="isLoggedIn ? USER_CENTER_PATH : LOGIN_PATH">会员登录</router-link>
           <span class="divider">|</span>
           <router-link to="/apply">会员注册</router-link>
-          <span class="divider">|</span>
-          <router-link :to="isLoggedIn ? USER_CENTER_PATH : LOGIN_PATH">会员中心</router-link>
         </div>
         <div class="topbar-right">
           <span>欢迎访问云南人工智能学会官网</span>

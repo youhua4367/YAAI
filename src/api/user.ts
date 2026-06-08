@@ -12,3 +12,14 @@ export function getUserById(id: number): Promise<Result<UserDetailVO>> {
 export function updateUser(params: UpdateUserParams): Promise<Result<void>> {
   return request.put('/user/update', params)
 }
+
+/** `POST /user/changePassword` - 修改密码 */
+export interface ChangePasswordParams {
+  oldPassword: string
+  newPassword: string
+  confirmPassword: string
+}
+
+export function changePassword(params: ChangePasswordParams): Promise<Result<void>> {
+  return request.post('/user/changePassword', params)
+}

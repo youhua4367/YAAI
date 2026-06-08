@@ -9,7 +9,8 @@ import type {
   LoginSessionData,
   CancelApplyParams,
   SingleMemberApplyRequest,
-  CompanyMemberApplyRequest
+  CompanyMemberApplyRequest,
+  CommitteeVO
 } from '@/types/member'
 import type { OrderCreateVO, OrderVO } from '@/types/userCenter'
 
@@ -28,6 +29,16 @@ export const login = (params: LoginParams): Promise<Result<LoginSessionData>> =>
 // 用户登出
 export const logout = (): Promise<Result<void>> => {
   return request.post('/member/logout')
+}
+
+// 获取委员会列表
+export const getCommitteeList = (): Promise<Result<CommitteeVO[]>> => {
+  return request.get('/committee/queryAllNames')
+}
+
+// 根据用户ID查询会员ID
+export const queryMemberIdByUserId = (userId: number): Promise<Result<number>> => {
+  return request.get('/member/queryMemberIdByUserId', { params: { userId } })
 }
 
 // 个人会员申请

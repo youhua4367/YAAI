@@ -1,65 +1,104 @@
-<!-- 个人会员申请：POST /member/apply/single -->
+<!-- 会员信息展示与编辑 -->
 <template>
   <div class="profile-page">
     <div class="page-header">
-      <h2>个人会员申请</h2>
+      <h2>{{ isCompanyMember ? '单位会员信息' : '个人会员信息' }}</h2>
     </div>
 
     <div v-loading="loading" class="profile-card">
+      <!-- 单位会员信息展示 -->
+      <CompanyMemberInfoDisplay
+        v-if="isCompanyMember && companyMemberInfo"
+        :info="companyMemberInfo"
+      />
+
+      <!-- 个人会员表单（可编辑） -->
       <PersonalMemberApplyForm
-        v-if="memberId > 0 && !loading"
+        v-else-if="memberId > 0 && !loading"
         :member-id="memberId"
         :initial-data="memberSingle"
         :initial-education="educationList"
         :initial-work="workList"
+        :initial-committee-member="committeeMember"
         @success="onSaved"
       />
+
+      <!-- 未完善提示 -->
+      <div v-else class="empty-state">
+        <i class="fas fa-user-circle"></i>
+        <p>您尚未完善{{ isCompanyMember ? '单位会员' : '个人会员' }}信息</p>
+        <el-button type="primary" @click="handleApply">
+          立即申请
+        </el-button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import PersonalMemberApplyForm from '@/components/user/PersonalMemberApplyForm.vue'
+import CompanyMemberInfoDisplay from '@/components/user/CompanyMemberInfoDisplay.vue'
 import {
   getMemberEducationByMemberId,
-  getMemberWorkExperienceByMemberId
+  getMemberWorkExperienceByMemberId,
+  getCommitteeMemberByMemberId
 } from '@/api/memberArchive'
 import { useMemberProfile } from '@/composables/useMemberProfile'
+import { useLoginDataLoader } from '@/composables/useLoginDataLoader'
 import { useTokenStore } from '@/stores/token'
 import type { MemberEducationVO, MemberWorkExperienceVO } from '@/types/userCenter'
 
-const { memberSingle, loading, fetchMemberSingle } = useMemberProfile()
+const router = useRouter()
+const { memberSingle, companyMemberInfo, loading, fetchMemberSingle, memberType } = useMemberProfile()
+const loginDataLoader = useLoginDataLoader()
 const tokenStore = useTokenStore()
 
-const memberId = computed(() => Number(tokenStore.loginId) || 0)
+const isCompanyMember = computed(() => memberType.value === 'company')
+
+// 使用实际的 memberId，而不是 userId
+const memberId = computed(() => {
+  if (companyMemberInfo.value) {
+    return companyMemberInfo.value.memberId
+  }
+  return memberSingle.value?.memberId || Number(tokenStore.loginId) || 0
+})
+
 const educationList = ref<MemberEducationVO[]>([])
 const workList = ref<MemberWorkExperienceVO[]>([])
+const committeeMember = ref(loginDataLoader.profile.value?.committeeMember || null)
 
 async function loadExtraProfile() {
   const id = memberId.value
-  if (!id) {
+  if (!id || isCompanyMember.value) {
     educationList.value = []
     workList.value = []
+    committeeMember.value = null
     return
   }
   try {
-    const [eduRes, workRes] = await Promise.all([
+    const [eduRes, workRes, committeeRes] = await Promise.all([
       getMemberEducationByMemberId(id),
-      getMemberWorkExperienceByMemberId(id)
+      getMemberWorkExperienceByMemberId(id),
+      getCommitteeMemberByMemberId(id)
     ])
     educationList.value = eduRes.success && eduRes.data ? eduRes.data : []
     workList.value = workRes.success && workRes.data ? workRes.data : []
+    committeeMember.value = committeeRes.success ? committeeRes.data : null
   } catch {
     educationList.value = []
     workList.value = []
+    committeeMember.value = null
   }
 }
 
 watch(
-  () => memberSingle.value?.memberId ?? memberId.value,
-  () => {
-    void loadExtraProfile()
+  () => memberId.value,
+  (newMemberId) => {
+    if (newMemberId > 0) {
+      void loadExtraProfile()
+    }
   },
   { immediate: true }
 )
@@ -67,6 +106,11 @@ watch(
 async function onSaved() {
   await fetchMemberSingle(true)
   await loadExtraProfile()
+}
+
+function handleApply() {
+  const path = isCompanyMember.value ? '/apply/profile/company' : '/apply/profile/personal'
+  router.push(path)
 }
 </script>
 
@@ -97,5 +141,22 @@ async function onSaved() {
   border-radius: 8px;
   padding: 30px;
   min-height: 240px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.empty-state i {
+  font-size: 64px;
+  color: #cbd5e1;
+  margin-bottom: 16px;
+}
+
+.empty-state p {
+  font-size: 16px;
+  color: #64748b;
+  margin-bottom: 24px;
 }
 </style>

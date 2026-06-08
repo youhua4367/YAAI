@@ -15,6 +15,18 @@
       <h4 class="section-title">基本信息</h4>
       <el-row :gutter="20">
         <el-col :xs="24" :sm="12">
+          <el-form-item label="所属委员会" prop="committeeId">
+            <el-select v-model="form.committeeId" placeholder="请选择委员会" style="width: 100%" :loading="committeesLoading">
+              <el-option
+                v-for="committee in committees"
+                :key="committee.id"
+                :label="committee.name"
+                :value="committee.id"
+              />
+            </el-select>
+          </el-form-item>
+        </el-col>
+        <el-col :xs="24" :sm="12">
           <el-form-item label="姓名" prop="name">
             <el-input v-model="form.name" placeholder="请输入姓名" />
           </el-form-item>
@@ -358,11 +370,12 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { reactive, ref, watch, onMounted } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { submitSingleMemberApplication } from '@/api/member'
+import { submitSingleMemberApplication, getCommitteeList } from '@/api/member'
 import type { MemberSingleVO } from '@/types/userCenter'
+import type { CommitteeVO } from '@/types/member'
 import {
   createEmptyEducation,
   createEmptyPersonalMemberApplyForm,
@@ -373,16 +386,18 @@ import {
 } from '@/utils/singleMemberApplyForm'
 
 const props = defineProps<{
-  memberId: number
   initialData?: MemberSingleVO | null
   initialEducation?: Parameters<typeof memberSingleToApplyForm>[1]
   initialWork?: Parameters<typeof memberSingleToApplyForm>[2]
+  initialCommitteeMember?: Parameters<typeof memberSingleToApplyForm>[3]
 }>()
 
 const emit = defineEmits<{ success: [] }>()
 
 const formRef = ref<FormInstance>()
 const submitting = ref(false)
+const committeesLoading = ref(false)
+const committees = ref<CommitteeVO[]>([])
 const form = reactive<PersonalMemberApplyFormModel>(createEmptyPersonalMemberApplyForm())
 
 const validatePhone = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
@@ -410,6 +425,7 @@ const validateAreaCode = (_rule: unknown, value: string, callback: (error?: Erro
 }
 
 const rules: FormRules = {
+  committeeId: [{ required: true, message: '请选择委员会', trigger: 'change' }],
   name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
   gender: [{ required: true, message: '请选择性别', trigger: 'change' }],
   idCardType: [{ required: true, message: '请选择证件类型', trigger: 'change' }],
@@ -431,12 +447,14 @@ const rules: FormRules = {
 }
 
 watch(
-  () => [props.initialData, props.initialEducation, props.initialWork] as const,
-  () => {
-    Object.assign(
-      form,
-      memberSingleToApplyForm(props.initialData, props.initialEducation, props.initialWork)
-    )
+  () => [props.initialData, props.initialEducation, props.initialWork, props.initialCommitteeMember] as const,
+  ([data, edu, work, committee]) => {
+    const formData = memberSingleToApplyForm(data, edu, work, committee)
+    Object.assign(form, formData)
+    // 如果有委员会数据，设置 committeeId
+    if (committee?.committeeId) {
+      form.committeeId = committee.committeeId
+    }
   },
   { immediate: true, deep: true }
 )
@@ -457,19 +475,71 @@ function removeWork(index: number) {
   form.workExperiences.splice(index, 1)
 }
 
-async function handleSubmit() {
-  if (!props.memberId || submitting.value) return
-  const valid = await formRef.value?.validate().catch(() => false)
-  if (!valid) return
+// 加载委员会列表
+async function loadCommittees() {
+  committeesLoading.value = true
+  try {
+    const res = await getCommitteeList()
+    if (res.success && res.data) {
+      committees.value = res.data
+      // 优先从 sessionStorage 读取委员会 ID
+      const storedCommitteeId = sessionStorage.getItem('committeeId')
+      if (storedCommitteeId) {
+        const committeeId = Number(storedCommitteeId)
+        // 验证该委员会是否在列表中
+        const exists = committees.value.some(c => c.id === committeeId)
+        if (exists) {
+          form.committeeId = committeeId
+        } else if (!form.committeeId && committees.value.length > 0) {
+          // 如果不存在或没有预设值，选择第一个
+          form.committeeId = committees.value[0].id
+        }
+      } else if (!form.committeeId && committees.value.length > 0) {
+        // 如果没有存储的 ID，默认选中第一个委员会
+        form.committeeId = committees.value[0].id
+      }
+    }
+  } catch (error) {
+    console.error('加载委员会列表失败:', error)
+  } finally {
+    committeesLoading.value = false
+  }
+}
 
+onMounted(() => {
+  loadCommittees()
+})
+
+async function handleSubmit() {
+  if (submitting.value) return
+  
+  console.log('开始表单验证...')
+  const valid = await formRef.value?.validate().catch((error) => {
+    console.error('表单验证失败:', error)
+    return false
+  })
+  
+  if (!valid) {
+    console.warn('表单验证未通过，请检查必填字段')
+    ElMessage.warning('请完善必填信息')
+    return
+  }
+
+  console.log('表单验证通过，准备提交...')
   submitting.value = true
   try {
-    const res = await submitSingleMemberApplication(formToSingleMemberApplyRequest(form))
+    const requestData = formToSingleMemberApplyRequest(form)
+    console.log('提交的请求数据:', requestData)
+    
+    const res = await submitSingleMemberApplication(requestData)
+    console.log('提交响应:', res)
+    
     if (res.success) {
       ElMessage.success(res.message === 'SUCCESS' ? '申请已提交' : res.message)
       emit('success')
     }
-  } catch {
+  } catch (error) {
+    console.error('提交失败:', error)
     // 拦截器已提示
   } finally {
     submitting.value = false

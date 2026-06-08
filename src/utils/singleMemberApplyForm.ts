@@ -1,5 +1,5 @@
 import type { MemberEducationRequest, MemberWorkExperienceRequest, SingleMemberApplyRequest } from '@/types/member'
-import type { MemberEducationVO, MemberSingleVO, MemberWorkExperienceVO } from '@/types/userCenter'
+import type { CommitteeMemberVO, MemberEducationVO, MemberSingleVO, MemberWorkExperienceVO } from '@/types/userCenter'
 
 /** 提交申请时的默认入会元数据（与后端联调约定，可按接口调整） */
 export const DEFAULT_SINGLE_APPLY_META = {
@@ -12,6 +12,9 @@ export const DEFAULT_SINGLE_APPLY_META = {
 } as const
 
 export type PersonalMemberApplyFormModel = {
+  // 委员会ID（必填）
+  committeeId: number | null
+  
   name: string
   gender: string
   idCardType: string
@@ -63,6 +66,7 @@ export function createEmptyWorkExperience(): MemberWorkExperienceRequest {
 
 export function createEmptyPersonalMemberApplyForm(): PersonalMemberApplyFormModel {
   return {
+    committeeId: null,
     name: '',
     gender: '',
     idCardType: '',
@@ -104,13 +108,15 @@ function trimOrUndefined(value: string | undefined): string | undefined {
 export function memberSingleToApplyForm(
   vo?: MemberSingleVO | null,
   education: MemberEducationVO[] = [],
-  work: MemberWorkExperienceVO[] = []
+  work: MemberWorkExperienceVO[] = [],
+  committeeMember?: CommitteeMemberVO | null
 ): PersonalMemberApplyFormModel {
   const empty = createEmptyPersonalMemberApplyForm()
   if (!vo) return empty
 
   return {
     ...empty,
+    committeeId: committeeMember?.committeeId ?? null,
     name: vo.name ?? '',
     gender: vo.gender ?? '',
     idCardType: vo.idCardType ?? '',
@@ -169,6 +175,7 @@ export function formToSingleMemberApplyRequest(
 ): SingleMemberApplyRequest {
   return {
     ...DEFAULT_SINGLE_APPLY_META,
+    committeeId: form.committeeId ?? 1, // 默认值为1，防止为空
     interestCommittees: [],
     reviewActivities: [],
     recommender: trimOrUndefined(form.recommender),

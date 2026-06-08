@@ -1,4 +1,19 @@
 /**
+ * 会员类型
+ */
+export type MemberType = 'personal' | 'company'
+
+/**
+ * 会员审核状态（对应 member.audit_status）
+ */
+export type AuditStatus = 'pending' | 'approved' | 'rejected'
+
+/**
+ * 会员资格状态（对应 member.membership_status）
+ */
+export type MembershipStatus = 'normal' | 'expired' | 'suspended'
+
+/**
  * 用户注册参数
  * @description 用户注册时需要提交的参数，包含用户名、密码、手机号、邮箱、验证码等信息
  */
@@ -10,6 +25,7 @@ export interface RegisterParams {
   phone: string
   code: string
   acceptAgreement: boolean
+  memberType?: MemberType // 新增：会员类型
 }
 
 /**
@@ -24,17 +40,25 @@ export interface LoginParams {
 
 /** `POST /member/login` 成功时 `data`（Sa-Token 会话信息） */
 export interface LoginSessionData {
-  isLogin: boolean
-  loginDeviceType?: string
-  loginId: string | number
-  loginType?: string
-  sessionTimeout?: number
-  tag?: string | null
-  tokenActiveTimeout?: number
-  tokenName: string
-  tokenSessionTimeout?: number
-  tokenTimeout?: number
-  tokenValue: string
+  tokenInfo: {
+    isLogin: boolean
+    loginDeviceType?: string
+    loginId: string | number
+    loginType?: string
+    sessionTimeout?: number
+    tag?: string | null
+    tokenActiveTimeout?: number
+    tokenName: string
+    tokenSessionTimeout?: number
+    tokenTimeout?: number
+    tokenValue: string
+  }
+  userId: number
+  memberId: number
+  memberType?: '个人会员' | '单位会员'
+  roles: string[]
+  isAdmin: boolean
+  isMember: boolean
 }
 
 /**
@@ -149,12 +173,75 @@ export interface SingleMemberApplyRequest {
 }
 
 /**
+ * 委员会信息
+ * @description 专业委员会基本信息，用于会员申请时选择所属委员会
+ */
+export interface CommitteeVO {
+  id: number
+  name: string
+}
+
+/**
  * 附件请求参数
  * @description 文件附件信息，用于上传营业执照、资格证书等
  */
 export interface AttachmentRequest {
   fileName: string
   fileUrl: string
+}
+
+/**
+ * 单位会员申请表单模型（前端表单使用）
+ */
+export type CompanyMemberApplyFormModel = {
+  // 委员会ID（必填）
+  committeeId: number | null
+  
+  // 单位基本信息
+  unitName: string
+  unitCategory: string
+  industry: string
+  areaCode: string
+  address: string
+  postalCode: string
+  website: string
+  establishedDate: string
+  registeredCapital: number | null
+  financingRound: string
+  legalRepresentative: string
+  unifiedSocialCreditCode: string
+  businessScope: string
+  unitIntro: string
+  aiIndustryIntro: string
+
+  // 单位负责人信息
+  leaderName: string
+  leaderTitle: string
+  leaderPhone: string
+  leaderEmail: string
+
+  // 联系人信息
+  contactName: string
+  contactDept: string
+  contactOfficePhone: string
+  contactMobile: string
+  contactEmail: string
+  totalEmployees: number | null
+  contactGender: string
+  contactTitle: string
+  contactJobTitle: string
+  contactFax: string
+
+  // 其他信息
+  otherSocieties: string
+  suggestions: string
+  recommender: string
+
+  // 附件
+  businessLicenseUrl: string
+  qualifications: AttachmentRequest[]
+  honors: AttachmentRequest[]
+  others: AttachmentRequest[]
 }
 
 /**

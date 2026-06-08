@@ -118,6 +118,103 @@ export interface MemberWorkExperienceVO {
   updatedAt?: string | null
 }
 
+/** 会员委员会关系 */
+export interface CommitteeMemberVO {
+  id: number
+  memberId: number
+  memberName?: string | null
+  committeeId: number
+  committeeName?: string | null
+  role?: string | null
+  joinedAt?: string | null
+  status?: string | null
+  resignDate?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
+/**
+ * 单位会员详细信息 VO
+ */
+export interface CompanyMemberInfoVO {
+  // 基本信息
+  memberId: number
+  type: string
+  memberNo: string
+  categoryId: number
+  joinMethod: string
+  auditStatus: string
+  membershipStatus: string
+  accountEmail: string
+  userId: number
+  createdAt: string
+  expiryDate?: string | null
+
+  // 委员会信息
+  committeeId: number
+  committeeName: string
+  committeeRole: string
+  joinedAt: string
+
+  // 单位基本信息
+  unitId: number
+  unitName: string
+  unitCategory: string
+  industry: string
+  areaCode: string
+  address: string
+  postalCode: string
+  website: string
+  establishedDate: string
+  registeredCapital: number
+  financingRound: string
+  legalRepresentative: string
+  unifiedSocialCreditCode: string
+  businessScope?: string | null
+  unitIntro?: string | null
+  aiIndustryIntro?: string | null
+
+  // 单位负责人信息
+  leaderName: string
+  leaderTitle?: string | null
+  leaderPhone: string
+  leaderEmail: string
+
+  // 联系人信息
+  contactName: string
+  contactDept?: string | null
+  contactOfficePhone?: string | null
+  contactMobile: string
+  contactEmail: string
+  contactGender?: string | null
+  contactTitle?: string | null
+  contactJobTitle?: string | null
+  contactFax?: string | null
+
+  // 其他信息
+  totalEmployees?: number | null
+  otherSocieties?: string | null
+  suggestions?: string | null
+  recommender?: string | null
+  interestCommitteeNames: string[]
+
+  // 附件信息
+  businessLicenseUrl: string
+  qualificationList: AttachmentItem[]
+  honorList: AttachmentItem[]
+  otherList: AttachmentItem[]
+}
+
+/**
+ * 附件项
+ */
+export interface AttachmentItem {
+  id?: number
+  fileName: string
+  fileUrl: string
+  uploadTime?: string
+}
+
 /** 订单（`Order` / `OrderVO`，含 `expired`） */
 export interface OrderVO {
   id?: number | null

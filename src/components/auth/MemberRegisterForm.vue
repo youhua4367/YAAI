@@ -213,9 +213,12 @@ async function handleSubmit() {
       confirmPassword: form.confirmPassword,
       acceptAgreement: true
     }
-    await authStore.doRegister(payload)
-    ElMessage.success('注册成功，请登录后在会员中心完善资料')
-    emit('success')
+    const result = await authStore.doRegister(payload)
+
+    if (result.success) {
+      ElMessage.success('注册成功！')
+      emit('success')
+    }
   } catch {
     ElMessage.error('注册失败，请重试')
   } finally {

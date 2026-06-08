@@ -5,18 +5,32 @@
       <div class="welcome-content">
         <div class="user-info">
           <div class="avatar">
-            <img v-if="memberSingle?.img" :src="memberSingle.img" alt="头像" class="avatar-img" />
-            <i v-else class="fas fa-user-circle"></i>
+            <img v-if="isCompanyMember && companyMemberInfo?.businessLicenseUrl" :src="companyMemberInfo.businessLicenseUrl" alt="营业执照" class="avatar-img" />
+            <img v-else-if="memberSingle?.img" :src="memberSingle.img" alt="头像" class="avatar-img" />
+            <i v-else class="fas" :class="isCompanyMember ? 'fa-building' : 'fa-user-circle'"></i>
           </div>
           <div class="user-details">
             <h3 class="welcome-text">欢迎您，{{ displayName }}</h3>
             <p class="membership-info">
-              工作单位：<ProfileField :value="memberSingle?.workUnit" /><br />
-              入会时间：<ProfileField :value="joinDateRaw" date /><br />
-              入会状态：<span class="status" :class="statusClass">{{ statusText }}</span><br />
-              最高学历：<ProfileField :value="memberSingle?.highestEducation" />
+              <template v-if="isCompanyMember && companyMemberInfo">
+                单位名称：<ProfileField :value="companyMemberInfo.unitName" /><br />
+                入会时间：<ProfileField :value="companyMemberInfo.joinedAt" date /><br />
+                入会状态：<span class="status" :class="companyStatusClass">{{ companyStatusText }}</span><br />
+                单位类别：<ProfileField :value="companyMemberInfo.unitCategory" />
+              </template>
+              <template v-else-if="memberSingle">
+                工作单位：<ProfileField :value="memberSingle?.workUnit" /><br />
+                入会时间：<ProfileField :value="joinDateRaw" date /><br />
+                入会状态：<span class="status" :class="statusClass">{{ statusText }}</span><br />
+                最高学历：<ProfileField :value="memberSingle?.highestEducation" />
+              </template>
             </p>
-            <div class="user-stats">
+            <div class="user-stats" v-if="isCompanyMember && companyMemberInfo">
+              <span class="stat-item">行业：<strong><ProfileField :value="companyMemberInfo.industry" /></strong></span>
+              <span class="stat-item">联系人：<strong><ProfileField :value="companyMemberInfo.contactName" /></strong></span>
+              <span class="stat-item">手机：<strong><ProfileField :value="companyMemberInfo.contactMobile" /></strong></span>
+            </div>
+            <div class="user-stats" v-else-if="memberSingle">
               <span class="stat-item">职务：<strong><ProfileField :value="memberSingle?.position" /></strong></span>
               <span class="stat-item">职称：<strong><ProfileField :value="memberSingle?.jobTitle" /></strong></span>
               <span class="stat-item">手机：<strong><ProfileField :value="memberSingle?.contactPhone" /></strong></span>
@@ -25,8 +39,9 @@
         </div>
 
         <div class="quick-hint">
-          <p v-if="notFilled">您尚未完善<strong>个人会员</strong>档案，请前往「个人会员」补充信息。</p>
-          <p v-else>使用左侧菜单可查看 <strong>缴费订单</strong> 与 <strong>个人会员</strong>资料。</p>
+          <p v-if="notFilled && canEditProfile">您尚未完善<strong>{{ isCompanyMember ? '单位会员' : '个人会员' }}</strong>档案，请前往「{{ isCompanyMember ? '单位会员' : '个人会员' }}」补充信息。</p>
+          <p v-else-if="hasFullAccess">使用左侧菜单可查看 <strong>缴费订单</strong> 与 <strong>{{ isCompanyMember ? '单位会员' : '个人会员' }}</strong>资料。</p>
+          <p v-else>{{ permissionHint }}</p>
         </div>
       </div>
 
@@ -34,7 +49,22 @@
         <div class="tip-item">
           <span class="tip-icon">💡</span>
           <span>入会申请已通过，请缴纳会费</span>
-          <button class="tip-btn" type="button">立即缴费</button>
+          <button
+            v-if="canMakePayment"
+            class="tip-btn"
+            type="button"
+            @click="handleGoToPayment"
+          >
+            立即缴费
+          </button>
+        </div>
+      </div>
+
+      <!-- 审核中提示 -->
+      <div v-if="isPendingReview" class="membership-tips audit-tip">
+        <div class="tip-item">
+          <span class="tip-icon">⏳</span>
+          <span>您的申请正在审核中，请耐心等待</span>
         </div>
       </div>
     </div>
@@ -60,18 +90,68 @@ import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import ProfileField from '@/components/common/ProfileField.vue'
 import { useMemberProfile } from '@/composables/useMemberProfile'
+import { useMemberPermissions } from '@/composables/useMemberPermissions'
 import { useCurrentUserStore } from '@/stores/currentUser'
-import { userStatusClass, userStatusLabel } from '@/utils/memberDisplay'
 
-const { memberSingle, notFilled, displayName } = useMemberProfile()
+const { memberSingle, companyMemberInfo, notFilled, displayName, memberType } = useMemberProfile()
 const { profile: userProfile } = storeToRefs(useCurrentUserStore())
+const {
+  statusText,
+  statusClass,
+  isPendingReview,
+  isApprovedPendingPayment,
+  isPaidMember,
+  canEditProfile,
+  canMakePayment,
+  hasFullAccess
+} = useMemberPermissions()
 
-const statusText = computed(() => userStatusLabel(userProfile.value?.status))
-const statusClass = computed(() => userStatusClass(userProfile.value?.status))
+const isCompanyMember = computed(() => memberType.value === 'company')
+
 const joinDateRaw = computed(
-  () => memberSingle.value?.createdAt ?? userProfile.value?.createdAt ?? null
+  () => isCompanyMember.value && companyMemberInfo.value
+    ? companyMemberInfo.value.joinedAt
+    : memberSingle.value?.createdAt ?? userProfile.value?.createdAt ?? null
 )
-const showPaymentTip = computed(() => userProfile.value?.status === 1)
+
+const showPaymentTip = computed(() => isApprovedPendingPayment.value)
+
+// 单位会员审核状态
+const companyStatusText = computed(() => {
+  if (!companyMemberInfo.value) return '未知'
+  return companyMemberInfo.value.auditStatus
+})
+
+const companyStatusClass = computed(() => {
+  const status = companyMemberInfo.value?.auditStatus
+  const map: Record<string, string> = {
+    '待审核': 'pending',
+    '已通过': 'paid',
+    '已拒绝': 'default'
+  }
+  return map[status] || 'default'
+})
+
+// 根据权限显示不同的提示信息
+const permissionHint = computed(() => {
+  if (isPendingReview.value) {
+    return '您的申请正在审核中，审核期间您可以查看和修改个人信息。'
+  }
+  if (isApprovedPendingPayment.value) {
+    return '审核已通过，请缴纳会费以成为正式会员。'
+  }
+  if (isPaidMember.value) {
+    return '欢迎正式会员！您可以使用全部功能。'
+  }
+  return ''
+})
+
+// 跳转到缴费页面
+function handleGoToPayment() {
+  // TODO: 跳转到缴费页面或打开缴费弹窗
+  console.log('前往缴费')
+  // router.push('/user/payment')
+}
 </script>
 
 <style scoped>
@@ -211,6 +291,13 @@ const showPaymentTip = computed(() => userProfile.value?.status === 1)
   background: #fff7e6;
   border: 1px solid #ffd591;
   border-radius: 8px;
+}
+
+/* 审核中提示样式 */
+.audit-tip {
+  background: #f0f5ff;
+  border-color: #adc6ff;
+  margin-top: 12px;
 }
 
 .tip-item {

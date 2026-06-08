@@ -28,6 +28,10 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useMemberPermissions } from '@/composables/useMemberPermissions'
+import {useMemberProfile} from "@/composables/useMemberProfile.ts";
+
 interface Props {
   currentTab: string;
   isCollapsed: boolean;
@@ -39,11 +43,35 @@ const emit = defineEmits<{
   (e: 'update:currentTab', tab: string): void;
 }>();
 
-const menuItems = [
-  { key: 'home', label: '首页', icon: 'fas fa-th-large' },
-  { key: 'orders', label: '我的缴费', icon: 'fas fa-wallet' },
-  { key: 'profile', label: '个人会员', icon: 'fas fa-user-circle' }
-]
+const { canViewOrders } = useMemberPermissions()
+const { memberType } = useMemberProfile()
+const isCompanyMember = computed(() => memberType.value === 'company')
+// 根据权限和会员类型过滤菜单项
+const menuItems = computed(() => {
+  const items = [
+    { key: 'home', label: '首页', icon: 'fas fa-th-large' }
+  ]
+
+  // 只有待缴费或已缴费会员可以查看订单
+  if (canViewOrders.value) {
+    items.push({ key: 'orders', label: '我的缴费', icon: 'fas fa-wallet' })
+  }
+
+  // 根据会员类型显示不同的菜单标签
+  if (isCompanyMember.value) {
+    items.push({ key: 'profile', label: '单位会员', icon: 'fas fa-building' })
+  } else {
+    items.push({ key: 'profile', label: '个人会员', icon: 'fas fa-user-circle' })
+  }
+
+  // TODO: 正式会员可以添加更多菜单项
+  // if (hasFullAccess.value) {
+  //   items.push({ key: 'committee', label: '委员会', icon: 'fas fa-users' })
+  // }
+
+  return items
+})
+
 
 const handleTabClick = (tab: string) => {
   emit('update:currentTab', tab);

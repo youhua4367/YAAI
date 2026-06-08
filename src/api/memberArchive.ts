@@ -5,7 +5,9 @@ import type {
   MemberSingleInsertRequest,
   MemberSingleUpdateRequest,
   MemberSingleVO,
-  MemberWorkExperienceVO
+  MemberWorkExperienceVO,
+  CommitteeMemberVO,
+  CompanyMemberInfoVO
 } from '@/types/userCenter'
 
 /** 个人会员档案不存在时的业务码（不弹全局错误提示） */
@@ -17,11 +19,6 @@ export function getMemberSingleByMemberId(memberId: number): Promise<Result<Memb
     params: { memberId },
     silentErrorCodes: [NOT_EXIST_SINGLE_MEMBER]
   })
-}
-
-/** `GET /member-single/queryById?id=` */
-export function getMemberSingleById(id: number): Promise<Result<MemberSingleVO>> {
-  return request.get('/member-single/queryById', { params: { id } })
 }
 
 /** `POST /member-single/insert` */
@@ -47,3 +44,15 @@ export function getMemberWorkExperienceByMemberId(
 ): Promise<Result<MemberWorkExperienceVO[]>> {
   return request.get('/member-work-experience/queryByMemberId', { params: { memberId } })
 }
+
+/** `GET /committee-member/queryByMemberId?memberId=` → `CommitteeMemberVO` */
+export function getCommitteeMemberByMemberId(memberId: number): Promise<Result<CommitteeMemberVO>> {
+  return request.get('/committee-member/queryByMemberId', { params: { memberId } })
+}
+
+/** 查询单位会员详细信息 `GET /member/company/info?memberId=` */
+export function getCompanyMemberInfo(memberId: number): Promise<Result<CompanyMemberInfoVO>> {
+  return request.get('/member/company/info', { params: { memberId } })
+}
+
+

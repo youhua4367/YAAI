@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { guestOnly, loadUserProfile, requireAuth } from './authGuards'
 
+
 /**
  * 固定路由：不走 GET /pages 的业务页（会员、登录、内容详情等）。
  *
@@ -21,6 +22,27 @@ const router = createRouter({
       name: 'Register',
       component: () => import('@/views/auth/Register.vue'),
       beforeEnter: guestOnly
+    },
+    // 新增：个人会员信息填写路由（不需要登录）
+    {
+      path: '/apply/profile/personal',
+      name: 'ApplyPersonalProfile',
+      component: () => import('@/views/auth/ApplyProfile.vue'),
+      beforeEnter: guestOnly,
+      meta: { memberType: 'personal' }
+    },
+    // 新增：单位会员信息填写路由（不需要登录）
+    {
+      path: '/apply/profile/company',
+      name: 'ApplyCompanyProfile',
+      component: () => import('@/views/auth/ApplyProfile.vue'),
+      beforeEnter: guestOnly,
+      meta: { memberType: 'company' }
+    },
+    // 保留旧路由，重定向到个人会员页面（兼容）
+    {
+      path: '/apply/profile',
+      redirect: '/apply/profile/personal'
     },
     {
       path: '/apply/:step',
