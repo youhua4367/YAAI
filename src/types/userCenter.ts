@@ -13,8 +13,34 @@ export interface UserDetailVO {
   updatedAt?: string | null
 }
 
-export interface MemberSingleVO {
-  id: number
+
+
+/**
+ * 个人会员详细信息视图对象（用于前端展示）
+ * 对应后端 MemberSingleInfoVO
+ */
+export interface MemberSingleInfoVO {
+  // ==================== Member 基本信息 ====================
+  memberId?: number | null
+  type?: string | null
+  memberNo?: string | null
+  categoryId?: number | null
+  joinMethod?: string | null
+  auditStatus?: string | null
+  membershipStatus?: string | null
+  accountEmail?: string | null
+  userId?: number | null
+  createdAt?: string | null
+  expiryDate?: string | null
+
+  // ==================== CommitteeMember 委员会成员信息 ====================
+  committeeId?: number | null
+  committeeName?: string | null
+  committeeRole?: string | null
+  joinedAt?: string | null
+
+  // ==================== MemberSingle 个人会员基本信息 ====================
+  singleId?: number | null
   name?: string | null
   gender?: string | null
   idCardType?: string | null
@@ -44,11 +70,26 @@ export interface MemberSingleVO {
   projectExperience?: string | null
   recommender?: string | null
   other?: string | null
-  memberId?: number | null
   areaCode?: string | null
-  createdAt?: string | null
-  updatedAt?: string | null
+
+  // ==================== 教育经历列表 ====================
+  educationList?: MemberEducationVO[] | null
+
+  // ==================== 工作经历列表 ====================
+  workExperienceList?: MemberWorkExperienceVO[] | null
+
+  // ==================== 关注的委员会列表 ====================
+  interestCommitteeNames?: string[] | null
+
+  // ==================== 评审活动类型列表 ====================
+  reviewTypeNames?: string[] | null
+
+  // ==================== 附件信息 ====================
+  qualificationList?: AttachmentItem[] | null
+  honorList?: AttachmentItem[] | null
+  otherList?: AttachmentItem[] | null
 }
+
 
 /** `POST /member-single/insert` 请求体（writable 字段） */
 export interface MemberSingleInsertRequest {

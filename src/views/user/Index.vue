@@ -7,7 +7,7 @@
 
     <header class="user-header" :class="{ 'header-collapsed': isHeaderCollapsed }">
       <div class="header-container">
-        <div class="header-left" v-show="!isHeaderCollapsed">
+        <div class="header-left" v-show="!isHeaderCollapsed" @click="goHome">
           <div class="logo-box">
             <img src="/YAAI_logo_v1.0.svg" alt="YAAI" />
           </div>
@@ -79,8 +79,9 @@
           <div class="content-area">
             <transition name="page-fade" mode="out-in">
               <div :key="currentTab" class="view-container">
-                <UserHome v-if="currentTab === 'home'" />
-                <MyOrders v-if="currentTab === 'orders'" />
+                <UserHome v-if="currentTab === 'home'" @navigate-to-payment="openOrdersPaymentPanel" />
+                <PaymentPage v-if="currentTab === 'payment'" />
+                <MyOrders v-if="currentTab === 'orders'" :open-payment-key="paymentPanelKey" />
                 <UserProfile v-if="currentTab === 'profile'" />
               </div>
             </transition>
@@ -99,12 +100,14 @@ import UserHome from './UserHome.vue'
 import UserProfile from './UserProfile.vue'
 import MyOrders from './MyOrders.vue'
 import ChangePasswordForm from '@/components/user/ChangePasswordForm.vue'
+
 import { logout } from '@/api/member'
 import { useMemberProfile } from '@/composables/useMemberProfile'
 import { LOGIN_PATH } from '@/constants/authPaths'
 import { useCurrentUserStore } from '@/stores/currentUser'
 import { useMemberProfileStore } from '@/stores/memberProfile'
 import { useTokenStore } from '@/stores/token'
+import PaymentPage from "@/views/user/PaymentPage.vue";
 
 const router = useRouter()
 const tokenStore = useTokenStore()
@@ -118,6 +121,7 @@ const avatarUrl = computed(() => {
 })
 
 const currentTab = ref('home')
+const paymentPanelKey = ref(0)
 const isSidebarCollapsed = ref(false)
 const isHeaderCollapsed = ref(false)
 const loggingOut = ref(false)
@@ -131,11 +135,21 @@ const toggleSidebar = () => {
 const currentTabName = computed(() => {
   const map: Record<string, string> = {
     home: '首页',
+    payment: '会费缴纳',
     orders: '我的缴费',
     profile: '个人会员'
   }
   return map[currentTab.value] || ''
 })
+
+function goHome() {
+  router.push('/')
+}
+
+function openOrdersPaymentPanel() {
+  currentTab.value = 'orders'
+  paymentPanelKey.value += 1
+}
 
 async function handleLogout() {
   if (loggingOut.value) return
@@ -226,6 +240,16 @@ function handleUserCommand(command: string) {
   gap: 16px;
   width: 240px;
   transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.header-left:hover .logo-box {
+  box-shadow: 0 6px 16px rgba(12, 77, 162, 0.15);
+  transform: translateY(-1px);
+}
+
+.header-left:hover .brand-text h1 {
+  color: var(--primary);
 }
 
 .logo-box {
@@ -234,11 +258,13 @@ function handleUserCommand(command: string) {
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.06);
   padding: 4px;
+  transition: all 0.3s ease;
 }
 .logo-box img { width: 100%; height: 100%; object-fit: contain; }
 
-.brand-text h1 { font-size: 16px; font-weight: 700; color: var(--slate-800); margin: 0; }
+.brand-text h1 { font-size: 16px; font-weight: 700; color: var(--slate-800); margin: 0; transition: color 0.3s ease; }
 .brand-text .sub-title { font-size: 10px; color: var(--slate-500); letter-spacing: 1px; }
+
 
 .header-right {
   flex: 1;

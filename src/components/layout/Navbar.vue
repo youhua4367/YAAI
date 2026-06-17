@@ -30,38 +30,52 @@
         </ul>
 
         <div class="nav-tools">
-          <button class="search-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-          </button>
-          <div class="divider"></div>
-          <a href="#" class="lang-en">EN</a>
+          <!-- 登录后的用户头像 -->
+          <div v-if="isLoggedIn" class="user-avatar-wrapper" @click="goToUserCenter">
+            <div class="user-avatar">
+              <img :src="avatarUrl" :alt="displayName" />
+              <span class="status-dot"></span>
+            </div>
+            <span class="user-name">{{ displayName }}</span>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </template>
 
-<script setup lang="ts">
-import { computed } from 'vue'
+<script setup lang="ts">import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSiteMenusStore } from '@/stores/siteMenus'
 import { useSitePagesStore } from '@/stores/sitePages'
+import { useTokenStore } from '@/stores/token'
+import { useMemberProfile } from '@/composables/useMemberProfile'
 import type { NavMenuItem } from '@/utils/sitePageNav'
 import { isPathUnderModule } from '@/utils/paths'
+import { USER_CENTER_PATH } from '@/constants/authPaths'
 
 const route = useRoute()
 const router = useRouter()
 const siteMenusStore = useSiteMenusStore()
 const sitePagesStore = useSitePagesStore()
+const tokenStore = useTokenStore()
+const { isLoggedIn } = tokenStore
+const { displayName } = useMemberProfile()
 
 const navItems = computed(() => siteMenusStore.navItems)
+
+const avatarUrl = computed(() => {
+  const name = encodeURIComponent(displayName.value || '会员')
+  return `https://ui-avatars.com/api/?name=${name}&background=0c4da2&color=fff&size=32`
+})
 
 function goHome() {
   const home = sitePagesStore.basePathByCode('home') ?? '/'
   void router.push(home)
+}
+
+function goToUserCenter() {
+  void router.push(USER_CENTER_PATH)
 }
 
 function isNavItemActive(item: NavMenuItem): boolean {
@@ -220,6 +234,70 @@ function isNavItemActive(item: NavMenuItem): boolean {
   gap: 15px;
   margin-left: 20px;
   flex-shrink: 0;
+}
+
+/* ================= 用户头像区域 ================= */
+.user-avatar-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 15px;
+  padding: 6px 12px 6px 6px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.user-avatar-wrapper:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+.user-avatar {
+  position: relative;
+  width: 32px;
+  height: 32px;
+}
+
+.user-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  object-fit: cover;
+}
+
+.status-dot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  background: #10b981;
+  border: 2px solid #1e293b;
+  border-radius: 50%;
+}
+
+.user-name {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1280px) {
+  .user-name {
+    display: none;
+  }
+
+  .user-avatar-wrapper {
+    padding: 6px;
+    margin-left: 10px;
+  }
 }
 
 .search-btn {

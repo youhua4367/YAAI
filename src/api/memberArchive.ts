@@ -4,7 +4,7 @@ import type {
   MemberEducationVO,
   MemberSingleInsertRequest,
   MemberSingleUpdateRequest,
-  MemberSingleVO,
+  MemberSingleInfoVO,
   MemberWorkExperienceVO,
   CommitteeMemberVO,
   CompanyMemberInfoVO
@@ -13,9 +13,9 @@ import type {
 /** 个人会员档案不存在时的业务码（不弹全局错误提示） */
 export const NOT_EXIST_SINGLE_MEMBER = 'NOT_EXIST_SINGLE_MEMBER'
 
-/** `GET /member-single/queryByMemberId?memberId=` */
-export function getMemberSingleByMemberId(memberId: number): Promise<Result<MemberSingleVO>> {
-  return request.get('/member-single/queryByMemberId', {
+/** `GET /member/single/info?memberId=` - 查询个人会员详细信息 */
+export function getMemberSingleByMemberId(memberId: number): Promise<Result<MemberSingleInfoVO>> {
+  return request.get('/member/single/info', {
     params: { memberId },
     silentErrorCodes: [NOT_EXIST_SINGLE_MEMBER]
   })

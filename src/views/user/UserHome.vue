@@ -1,14 +1,24 @@
-<!-- 会员中心首页 -->
 <template>
   <div class="home-page">
     <div class="welcome-section">
       <div class="welcome-content">
         <div class="user-info">
           <div class="avatar">
-            <img v-if="isCompanyMember && companyMemberInfo?.businessLicenseUrl" :src="companyMemberInfo.businessLicenseUrl" alt="营业执照" class="avatar-img" />
-            <img v-else-if="memberSingle?.img" :src="memberSingle.img" alt="头像" class="avatar-img" />
+            <img
+              v-if="isCompanyMember && companyMemberInfo?.businessLicenseUrl"
+              :src="companyMemberInfo.businessLicenseUrl"
+              alt="营业执照"
+              class="avatar-img"
+            />
+            <img
+              v-else-if="memberSingle?.img"
+              :src="memberSingle.img"
+              alt="头像"
+              class="avatar-img"
+            />
             <i v-else class="fas" :class="isCompanyMember ? 'fa-building' : 'fa-user-circle'"></i>
           </div>
+
           <div class="user-details">
             <h3 class="welcome-text">欢迎您，{{ displayName }}</h3>
             <p class="membership-info">
@@ -18,58 +28,55 @@
                 入会状态：<span class="status" :class="companyStatusClass">{{ companyStatusText }}</span><br />
                 单位类别：<ProfileField :value="companyMemberInfo.unitCategory" />
               </template>
+
               <template v-else-if="memberSingle">
-                工作单位：<ProfileField :value="memberSingle?.workUnit" /><br />
+                工作单位：<ProfileField :value="memberSingle.workUnit" /><br />
                 入会时间：<ProfileField :value="joinDateRaw" date /><br />
                 入会状态：<span class="status" :class="statusClass">{{ statusText }}</span><br />
-                最高学历：<ProfileField :value="memberSingle?.highestEducation" />
+                最高学历：<ProfileField :value="memberSingle.highestEducation" />
               </template>
             </p>
+
             <div class="user-stats" v-if="isCompanyMember && companyMemberInfo">
               <span class="stat-item">行业：<strong><ProfileField :value="companyMemberInfo.industry" /></strong></span>
               <span class="stat-item">联系人：<strong><ProfileField :value="companyMemberInfo.contactName" /></strong></span>
               <span class="stat-item">手机：<strong><ProfileField :value="companyMemberInfo.contactMobile" /></strong></span>
             </div>
+
             <div class="user-stats" v-else-if="memberSingle">
-              <span class="stat-item">职务：<strong><ProfileField :value="memberSingle?.position" /></strong></span>
-              <span class="stat-item">职称：<strong><ProfileField :value="memberSingle?.jobTitle" /></strong></span>
-              <span class="stat-item">手机：<strong><ProfileField :value="memberSingle?.contactPhone" /></strong></span>
+              <span class="stat-item">职务：<strong><ProfileField :value="memberSingle.position" /></strong></span>
+              <span class="stat-item">职称：<strong><ProfileField :value="memberSingle.jobTitle" /></strong></span>
+              <span class="stat-item">手机：<strong><ProfileField :value="memberSingle.contactPhone" /></strong></span>
             </div>
           </div>
         </div>
 
         <div class="quick-hint">
-          <p v-if="notFilled && canEditProfile">您尚未完善<strong>{{ isCompanyMember ? '单位会员' : '个人会员' }}</strong>档案，请前往「{{ isCompanyMember ? '单位会员' : '个人会员' }}」补充信息。</p>
-          <p v-else-if="hasFullAccess">使用左侧菜单可查看 <strong>缴费订单</strong> 与 <strong>{{ isCompanyMember ? '单位会员' : '个人会员' }}</strong>资料。</p>
+          <p v-if="notFilled && canEditProfile">
+            您尚未完善<strong>{{ isCompanyMember ? '单位会员' : '个人会员' }}</strong>档案，请前往对应资料页补充信息。
+          </p>
           <p v-else>{{ permissionHint }}</p>
         </div>
       </div>
 
       <div v-if="showPaymentTip" class="membership-tips">
         <div class="tip-item">
-          <span class="tip-icon">💡</span>
-          <span>入会申请已通过，请缴纳会费</span>
-          <button
-            v-if="canMakePayment"
-            class="tip-btn"
-            type="button"
-            @click="handleGoToPayment"
-          >
+          <span class="tip-icon">🔔</span>
+          <span>{{ paymentTipText }}</span>
+          <button class="tip-btn" type="button" @click="handleGoToPayment">
             立即缴费
           </button>
         </div>
       </div>
 
-      <!-- 审核中提示 -->
-      <div v-if="isPendingReview" class="membership-tips audit-tip">
+      <div v-if="isPendingReview && !isApprovedPendingPayment && !isPaidMember" class="membership-tips audit-tip">
         <div class="tip-item">
           <span class="tip-icon">⏳</span>
-          <span>您的申请正在审核中，请耐心等待</span>
+          <span>您的申请正在审核中，请耐心等待审核结果。</span>
         </div>
       </div>
     </div>
 
-    <!-- 通知公告（暂保留静态占位） -->
     <div class="notice-section">
       <div class="section-header">
         <h4 class="section-title">通知公告</h4>
@@ -92,8 +99,9 @@ import ProfileField from '@/components/common/ProfileField.vue'
 import { useMemberProfile } from '@/composables/useMemberProfile'
 import { useMemberPermissions } from '@/composables/useMemberPermissions'
 import { useCurrentUserStore } from '@/stores/currentUser'
+import { getRemainingDays, isAuditApproved, resolveRenewalDeadline } from '@/utils/membershipPayment'
 
-const { memberSingle, companyMemberInfo, notFilled, displayName, memberType } = useMemberProfile()
+const { memberSingle, companyMemberInfo, notFilled, displayName, memberType, auditStatus } = useMemberProfile()
 const { profile: userProfile } = storeToRefs(useCurrentUserStore())
 const {
   statusText,
@@ -101,56 +109,80 @@ const {
   isPendingReview,
   isApprovedPendingPayment,
   isPaidMember,
-  canEditProfile,
-  canMakePayment,
-  hasFullAccess
+  canEditProfile
 } = useMemberPermissions()
+
+const emit = defineEmits<{
+  (e: 'navigateToPayment'): void
+}>()
 
 const isCompanyMember = computed(() => memberType.value === 'company')
 
-const joinDateRaw = computed(
-  () => isCompanyMember.value && companyMemberInfo.value
+const joinDateRaw = computed(() =>
+  isCompanyMember.value && companyMemberInfo.value
     ? companyMemberInfo.value.joinedAt
     : memberSingle.value?.createdAt ?? userProfile.value?.createdAt ?? null
 )
 
-const showPaymentTip = computed(() => isApprovedPendingPayment.value)
+const renewalDeadline = computed(() =>
+  resolveRenewalDeadline({
+    expiryDate: companyMemberInfo.value?.expiryDate ?? memberSingle.value?.expiryDate,
+    latestUploadTime: companyMemberInfo.value?.createdAt ?? memberSingle.value?.createdAt
+  })
+)
 
-// 单位会员审核状态
-const companyStatusText = computed(() => {
-  if (!companyMemberInfo.value) return '未知'
-  return companyMemberInfo.value.auditStatus
+const renewalDue = computed(() => {
+  if (!isPaidMember.value) return false
+  if (!renewalDeadline.value) return true
+  return renewalDeadline.value.getTime() <= Date.now()
 })
+
+const showPaymentTip = computed(() => {
+  if (isApprovedPendingPayment.value) return true
+  return renewalDue.value && isAuditApproved(auditStatus.value)
+})
+
+const paymentTipText = computed(() =>
+  renewalDue.value
+    ? '您的会费已到续费时间，请完成新一年的缴费。'
+    : '您的会费尚未缴纳，请尽快完成缴费以激活会员资格。'
+)
+
+const companyStatusText = computed(() => companyMemberInfo.value?.auditStatus || '未知')
 
 const companyStatusClass = computed(() => {
   const status = companyMemberInfo.value?.auditStatus
   const map: Record<string, string> = {
-    '待审核': 'pending',
-    '已通过': 'paid',
-    '已拒绝': 'default'
+    待申请: 'pending',
+    待审核: 'pending',
+    待缴费: 'pending',
+    有效会员: 'paid'
   }
-  return map[status] || 'default'
+  return map[status || ''] || 'default'
 })
 
-// 根据权限显示不同的提示信息
 const permissionHint = computed(() => {
   if (isPendingReview.value) {
-    return '您的申请正在审核中，审核期间您可以查看和修改个人信息。'
+    return '您的申请正在审核中，审核期间您可以查看和修改会员资料。'
   }
   if (isApprovedPendingPayment.value) {
     return '审核已通过，请缴纳会费以成为正式会员。'
   }
-  if (isPaidMember.value) {
-    return '欢迎正式会员！您可以使用全部功能。'
+  if (renewalDue.value) {
+    return '您的会费已到续费时间，请完成新一年的缴费。'
   }
-  return ''
+  if (isPaidMember.value) {
+    const remainingDays = getRemainingDays(renewalDeadline.value)
+    if (remainingDays !== null && remainingDays > 0) {
+      return `欢迎正式会员，距离下次续费还有 ${remainingDays} 天。`
+    }
+    return '欢迎正式会员，您可以使用全部功能。'
+  }
+  return '请先完善会员资料并等待审核结果。'
 })
 
-// 跳转到缴费页面
 function handleGoToPayment() {
-  // TODO: 跳转到缴费页面或打开缴费弹窗
-  console.log('前往缴费')
-  // router.push('/user/payment')
+  emit('navigateToPayment')
 }
 </script>
 
@@ -212,14 +244,14 @@ function handleGoToPayment() {
   font-size: 18px;
   font-weight: 600;
   color: #333;
-  margin: 0 0 12px 0;
+  margin: 0 0 12px;
 }
 
 .membership-info {
   font-size: 14px;
   color: #666;
   line-height: 1.6;
-  margin: 0 0 12px 0;
+  margin: 0 0 12px;
 }
 
 .status {
@@ -267,7 +299,7 @@ function handleGoToPayment() {
 }
 
 .quick-hint {
-  max-width: 280px;
+  max-width: 320px;
   padding: 16px 18px;
   background: #fff;
   border-radius: 8px;
@@ -293,7 +325,6 @@ function handleGoToPayment() {
   border-radius: 8px;
 }
 
-/* 审核中提示样式 */
 .audit-tip {
   background: #f0f5ff;
   border-color: #adc6ff;

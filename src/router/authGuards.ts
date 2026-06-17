@@ -41,12 +41,9 @@ export const requireAuth: NavigationGuard = (to, _from, next) => {
   next()
 }
 
-/** 进入个人中心时拉取账号信息与个人会员档案 */
+/** 进入个人中心时拉取账号信息（会员信息已在登录时加载） */
 export const loadUserProfile: NavigationGuard = (_to, _from, next) => {
   const currentUserStore = useCurrentUserStore()
-  const memberProfileStore = useMemberProfileStore()
-  void Promise.all([
-    currentUserStore.fetchCurrentUser(true),
-    memberProfileStore.fetchMemberSingle(true)
-  ]).finally(() => next())
+  // 只获取用户基本信息，会员信息已在登录时根据 memberType 加载完成
+  void currentUserStore.fetchCurrentUser(true).finally(() => next())
 }

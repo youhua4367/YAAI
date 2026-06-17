@@ -3,12 +3,12 @@ import { computed, ref } from 'vue'
 import { queryMemberIdByUserId } from '@/api/member'
 import {getCompanyMemberInfo, getMemberSingleByMemberId} from '@/api/memberArchive'
 import type { Result } from '@/types/result'
-import type { MemberSingleVO, CompanyMemberInfoVO } from '@/types/userCenter'
+import type { MemberSingleInfoVO, CompanyMemberInfoVO } from '@/types/userCenter'
 import { NOT_EXIST_SINGLE_MEMBER } from '@/api/memberArchive'
 import {useTokenStore} from "@/stores/token.ts";
 
 export const useMemberProfileStore = defineStore('memberProfile', () => {
-  const memberSingle = ref<MemberSingleVO | null>(null)
+  const memberSingle = ref<MemberSingleInfoVO | null>(null)
   const companyMemberInfo = ref<CompanyMemberInfoVO | null>(null)
   const notFilled = ref(false)
   const loading = ref(false)
@@ -24,6 +24,18 @@ export const useMemberProfileStore = defineStore('memberProfile', () => {
   const memberType = computed(() => {
     if (companyMemberInfo.value) return 'company'
     if (memberSingle.value) return 'personal'
+    return null
+  })
+
+  const auditStatus = computed(() => {
+    if (companyMemberInfo.value) return companyMemberInfo.value.auditStatus
+    if (memberSingle.value) return memberSingle.value.auditStatus
+    return null
+  })
+
+  const membershipStatus = computed(() => {
+    if (companyMemberInfo.value) return companyMemberInfo.value.membershipStatus
+    if (memberSingle.value) return memberSingle.value.membershipStatus
     return null
   })
 
@@ -50,7 +62,7 @@ export const useMemberProfileStore = defineStore('memberProfile', () => {
 
       const memberId = memberIdRes.data
 
-      // 尝试获取个人会员信息
+      // 尝试获取个人会员详细信息（包含教育经历、工作经历等）
       try {
         const res = await getMemberSingleByMemberId(memberId)
         if (res.success && res.data) {
@@ -108,7 +120,7 @@ export const useMemberProfileStore = defineStore('memberProfile', () => {
     loadedForMemberId = ''
   }
 
-  function setMemberSingle(data: MemberSingleVO) {
+  function setMemberSingle(data: MemberSingleInfoVO) {
     memberSingle.value = data
     companyMemberInfo.value = null
     notFilled.value = false
@@ -127,6 +139,8 @@ export const useMemberProfileStore = defineStore('memberProfile', () => {
     loading,
     displayName,
     memberType,
+    auditStatus,
+    membershipStatus,
     fetchMemberSingle,
     clearMemberProfile,
     setMemberSingle,

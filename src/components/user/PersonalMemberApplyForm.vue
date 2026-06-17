@@ -374,7 +374,6 @@ import { reactive, ref, watch, onMounted } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { submitSingleMemberApplication, getCommitteeList } from '@/api/member'
-import type { MemberSingleVO } from '@/types/userCenter'
 import type { CommitteeVO } from '@/types/member'
 import {
   createEmptyEducation,
@@ -384,9 +383,10 @@ import {
   memberSingleToApplyForm,
   type PersonalMemberApplyFormModel
 } from '@/utils/singleMemberApplyForm'
+import type {MemberSingleInfoVO} from "@/types/userCenter.ts";
 
 const props = defineProps<{
-  initialData?: MemberSingleVO | null
+  initialData?: MemberSingleInfoVO | null
   initialEducation?: Parameters<typeof memberSingleToApplyForm>[1]
   initialWork?: Parameters<typeof memberSingleToApplyForm>[2]
   initialCommitteeMember?: Parameters<typeof memberSingleToApplyForm>[3]

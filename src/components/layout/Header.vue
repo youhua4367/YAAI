@@ -5,9 +5,9 @@
         <div class="topbar-left">
           <a href="#">办公系统</a>
           <span class="divider">|</span>
-          <router-link :to="isLoggedIn ? USER_CENTER_PATH : LOGIN_PATH">会员登录</router-link>
-          <span class="divider">|</span>
-          <router-link to="/apply">会员注册</router-link>
+          <router-link v-if="!isLoggedIn" :to="LOGIN_PATH">会员登录</router-link>
+          <router-link v-if="!isLoggedIn" to="/apply">会员注册</router-link>
+          <span v-if="isLoggedIn" class="welcome-text">欢迎您，{{ displayName }}</span>
         </div>
         <div class="topbar-right">
           <span>欢迎访问云南人工智能学会官网</span>
@@ -17,16 +17,18 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { LOGIN_PATH, USER_CENTER_PATH } from '@/constants/authPaths'
+<script setup lang="ts">import { LOGIN_PATH } from '@/constants/authPaths'
 import { useTokenStore } from '@/stores/token'
+import { useMemberProfile } from '@/composables/useMemberProfile'
 import { storeToRefs } from 'pinia'
+import { computed } from 'vue'
 
-const { isLoggedIn } = storeToRefs(useTokenStore())
+const tokenStore = useTokenStore()
+const isLoggedIn = computed(() => tokenStore.isLoggedIn)
+const { displayName } = useMemberProfile()
 </script>
 
-<style scoped>
-/* 定义全局主题变量 */
+<style scoped>/* 定义全局主题变量 */
 .header-wrapper {
   --primary-color: #0056b3; /* 科技蓝 */
   --primary-hover: #003d82;
@@ -34,7 +36,7 @@ const { isLoggedIn } = storeToRefs(useTokenStore())
   --text-light: #777777;
   --topbar-bg: #f8f9fa;
   --border-color: #e0e0e0;
-  
+
   font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
 
@@ -76,5 +78,10 @@ const { isLoggedIn } = storeToRefs(useTokenStore())
   margin: 0 12px;
   color: #ccc;
   font-size: 10px;
+}
+
+.welcome-text {
+  color: var(--primary-color);
+  font-weight: 500;
 }
 </style>

@@ -1,14 +1,25 @@
-<!-- 会员中心我的缴费 -->
 <template>
   <div class="orders-page">
     <div class="page-header">
-      <h2 class="page-title">我的缴费</h2>
+      <div>
+        <h2 class="page-title">我的缴费</h2>
+        <p class="page-subtitle">查看历史订单，也可以直接在这里发起缴费或续费。</p>
+      </div>
+
+      <button class="header-pay-btn" type="button" @click="togglePaymentPanel">
+        <i class="fas fa-credit-card"></i>
+        {{ showPaymentPanel ? '收起缴费' : '立即缴费' }}
+      </button>
     </div>
-    
+
+    <div v-if="showPaymentPanel" class="payment-panel">
+      <PaymentPage @payment-success="handlePaymentSuccess" />
+    </div>
+
     <div class="filter-section">
       <div class="filter-tabs">
-        <span 
-          v-for="tab in tabs" 
+        <span
+          v-for="tab in tabs"
           :key="tab.value"
           :class="['tab-item', { active: currentTab === tab.value }]"
           @click="currentTab = tab.value"
@@ -16,112 +27,267 @@
           {{ tab.label }}
         </span>
       </div>
-      
+
       <div class="search-box">
-        <input 
-          type="text" 
+        <input
           v-model="searchKeyword"
-          placeholder="请输入您要搜索的内容"
+          type="text"
           class="search-input"
+          placeholder="请输入订单编号搜索"
+          @keyup.enter="handleSearch"
         />
-        <button class="search-btn" @click="handleSearch">查询</button>
+        <button class="search-btn" type="button" @click="handleSearch">查询</button>
       </div>
     </div>
-    
+
     <div class="content-section">
-      <div v-if="orders.length === 0" class="empty-state">
+      <div v-if="loading" class="loading-state">
+        <div class="spinner"></div>
+        <p class="loading-text">加载中...</p>
+      </div>
+
+      <div v-else-if="loadError" class="empty-state">
+        <div class="empty-icon">
+          <i class="fas fa-exclamation-circle"></i>
+        </div>
+        <p class="empty-text">{{ loadError }}</p>
+        <button class="retry-btn" type="button" @click="loadOrders">重新加载</button>
+      </div>
+
+      <div v-else-if="orders.length === 0" class="empty-state">
         <div class="empty-icon">
           <i class="fas fa-box-open"></i>
         </div>
-        <p class="empty-text">暂无数据</p>
+        <p class="empty-text">暂无缴费记录</p>
       </div>
-      
+
+      <div v-else-if="filteredOrders.length === 0" class="empty-state">
+        <div class="empty-icon">
+          <i class="fas fa-search"></i>
+        </div>
+        <p class="empty-text">没有匹配的订单</p>
+      </div>
+
       <div v-else class="orders-list">
-        <div v-for="order in filteredOrders" :key="order.id" class="order-item">
+        <div
+          v-for="(order, index) in filteredOrders"
+          :key="order.id ?? order.outTradeNo ?? index"
+          class="order-item"
+        >
           <div class="order-header">
-            <span class="order-no">订单号：{{ order.orderNo }}</span>
-            <span :class="['order-status', order.status]">{{ order.statusText }}</span>
+            <span class="order-no">订单号：{{ order.outTradeNo || '-' }}</span>
+            <span :class="['order-status', order.status.toLowerCase()]">
+              {{ getStatusText(order.status) }}
+            </span>
           </div>
+
           <div class="order-body">
             <div class="order-info">
-              <h4 class="order-title">{{ order.title }}</h4>
-              <p class="order-desc">{{ order.description }}</p>
-              <span class="order-time">{{ order.createTime }}</span>
+              <h4 class="order-title">会员缴费</h4>
+              <p class="order-desc">订单日期：{{ order.date || formatTime(order.createdAt) }}</p>
+              <span class="order-time">创建时间：{{ formatTime(order.createdAt) }}</span>
             </div>
+
             <div class="order-amount">
-              <span class="amount">¥{{ order.amount }}</span>
+              <span class="amount">¥{{ (order.amount ?? 0).toFixed(2) }}</span>
             </div>
           </div>
+
           <div class="order-footer">
-            <button v-if="order.status === 'pending'" class="btn-pay">立即支付</button>
-            <button class="btn-detail">查看详情</button>
+            <button
+              v-if="order.status === 'UNPAID'"
+              class="btn-pay"
+              type="button"
+              @click="openPaymentPanel"
+            >
+              去支付
+            </button>
+            <button class="btn-detail" type="button" @click="handleDetail(order)">查看详情</button>
           </div>
         </div>
       </div>
     </div>
+
+    <el-dialog v-model="showDetailDialog" title="订单详情" width="500px">
+      <div v-if="detailOrder" class="detail-content">
+        <div class="detail-row">
+          <span class="detail-label">订单编号</span>
+          <span class="detail-value mono">{{ detailOrder.outTradeNo || '-' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">支付方式</span>
+          <span class="detail-value">{{ detailOrder.paymentMethod === 'alipay' ? '支付宝' : detailOrder.paymentMethod || '-' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">订单金额</span>
+          <span class="detail-value price">¥{{ (detailOrder.amount ?? 0).toFixed(2) }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">订单状态</span>
+          <span class="detail-value">{{ getStatusText(detailOrder.status) }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">创建时间</span>
+          <span class="detail-value">{{ formatTime(detailOrder.createdAt) }}</span>
+        </div>
+        <div v-if="detailOrder.paidAt" class="detail-row">
+          <span class="detail-label">支付时间</span>
+          <span class="detail-value">{{ formatTime(detailOrder.paidAt) }}</span>
+        </div>
+        <div v-if="detailOrder.expireTime" class="detail-row">
+          <span class="detail-label">过期时间</span>
+          <span class="detail-value">{{ formatTime(detailOrder.expireTime) }}</span>
+        </div>
+        <div v-if="detailOrder.transactionId" class="detail-row">
+          <span class="detail-label">交易流水号</span>
+          <span class="detail-value mono">{{ detailOrder.transactionId }}</span>
+        </div>
+        <div v-if="detailOrder.closeReason" class="detail-row">
+          <span class="detail-label">关单原因</span>
+          <span class="detail-value">{{ detailOrder.closeReason }}</span>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue'
+import { ElMessage } from 'element-plus'
+import { getMemberOrderList } from '@/api/member'
+import { useMemberProfile } from '@/composables/useMemberProfile'
+import { formatDateTime } from '@/utils/membershipPayment'
+import type { OrderVO } from '@/types/userCenter'
+import PaymentPage from './PaymentPage.vue'
+
+interface Props {
+  openPaymentKey?: number
+}
+
+const props = defineProps<Props>()
+
+const { memberSingle, companyMemberInfo, fetchMemberSingle } = useMemberProfile()
 
 const tabs = [
   { label: '全部', value: 'all' },
-  { label: '已支付', value: 'paid' },
-  { label: '待支付', value: 'pending' },
-  { label: '已取消', value: 'cancelled' }
-];
+  { label: '已支付', value: 'PAID' },
+  { label: '待支付', value: 'UNPAID' }
+]
 
-const currentTab = ref('all');
-const searchKeyword = ref('');
+const currentTab = ref('all')
+const searchKeyword = ref('')
+const orders = ref<OrderVO[]>([])
+const loading = ref(true)
+const loadError = ref('')
+const showDetailDialog = ref(false)
+const detailOrder = ref<OrderVO | null>(null)
+const showPaymentPanel = ref(false)
 
-// 模拟订单数据
-const orders = ref([
-  {
-    id: 1,
-    orderNo: 'ORD202403290001',
-    title: '会员年费',
-    description: '中国人工智能学会2024年度会员费',
-    amount: '500.00',
-    status: 'paid',
-    statusText: '已支付',
-    createTime: '2024-03-29 10:30:00'
-  },
-  {
-    id: 2,
-    orderNo: 'ORD202403280002',
-    title: '会议注册费',
-    description: '2024人工智能大会注册费',
-    amount: '1200.00',
-    status: 'pending',
-    statusText: '待支付',
-    createTime: '2024-03-28 14:20:00'
-  }
-]);
+const memberId = computed(() => {
+  if (companyMemberInfo.value?.memberId) return companyMemberInfo.value.memberId
+  return memberSingle.value?.memberId ?? null
+})
 
 const filteredOrders = computed(() => {
-  let result = orders.value;
-  
-  // 按状态筛选
-  if (currentTab.value !== 'all') {
-    result = result.filter(order => order.status === currentTab.value);
-  }
-  
-  // 按关键词搜索
-  if (searchKeyword.value) {
-    const keyword = searchKeyword.value.toLowerCase();
-    result = result.filter(order => 
-      order.orderNo.toLowerCase().includes(keyword) ||
-      order.title.toLowerCase().includes(keyword)
-    );
-  }
-  
-  return result;
-});
+  let result = orders.value
 
-const handleSearch = () => {
-  console.log('搜索关键词：', searchKeyword.value);
-};
+  if (currentTab.value !== 'all') {
+    result = result.filter(order => order.status === currentTab.value)
+  }
+
+  if (searchKeyword.value.trim()) {
+    const keyword = searchKeyword.value.trim().toLowerCase()
+    result = result.filter(order =>
+      String(order.outTradeNo ?? '').toLowerCase().includes(keyword)
+    )
+  }
+
+  return result
+})
+
+function getStatusText(status: string) {
+  const map: Record<string, string> = {
+    UNPAID: '待支付',
+    PAID: '已支付',
+    CLOSED: '已关闭'
+  }
+  return map[status] ?? status
+}
+
+function formatTime(value?: string | null) {
+  return formatDateTime(value)
+}
+
+async function loadOrders() {
+  loading.value = true
+  loadError.value = ''
+
+  try {
+    if (!memberId.value) {
+      await fetchMemberSingle(true)
+    }
+
+    const mid = memberId.value
+    if (!mid) {
+      orders.value = []
+      loadError.value = '未获取到会员 ID，暂时无法查询缴费记录。'
+      return
+    }
+
+    const res = await getMemberOrderList(mid)
+    if (!res.success) {
+      throw new Error(res.message || '订单接口返回失败')
+    }
+
+    orders.value = Array.isArray(res.data)
+      ? [...res.data].sort((a, b) => {
+          const ta = new Date(a.createdAt ?? '').getTime()
+          const tb = new Date(b.createdAt ?? '').getTime()
+          return tb - ta
+        })
+      : []
+  } catch (error: any) {
+    loadError.value = error?.message || '加载订单列表失败'
+    ElMessage.error(loadError.value)
+  } finally {
+    loading.value = false
+  }
+}
+
+function openPaymentPanel() {
+  showPaymentPanel.value = true
+}
+
+function togglePaymentPanel() {
+  showPaymentPanel.value = !showPaymentPanel.value
+}
+
+function handleDetail(order: OrderVO) {
+  detailOrder.value = order
+  showDetailDialog.value = true
+}
+
+function handleSearch() {
+  // 搜索由 filteredOrders 自动处理
+}
+
+async function handlePaymentSuccess() {
+  await loadOrders()
+}
+
+watch(
+  () => props.openPaymentKey,
+  (value, oldValue) => {
+    if (value === undefined) return
+    if (value !== oldValue) {
+      showPaymentPanel.value = true
+    }
+  }
+)
+
+onMounted(() => {
+  void loadOrders()
+})
 </script>
 
 <style scoped>
@@ -133,6 +299,10 @@ const handleSearch = () => {
 }
 
 .page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
   margin-bottom: 20px;
 }
 
@@ -140,13 +310,47 @@ const handleSearch = () => {
   font-size: 18px;
   font-weight: 600;
   color: #333;
+  margin: 0 0 6px;
+}
+
+.page-subtitle {
   margin: 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.header-pay-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 8px;
+  background: #1677ff;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.header-pay-btn:hover {
+  background: #0958d9;
+}
+
+.payment-panel {
+  margin-bottom: 24px;
+  border: 1px solid #e6eefb;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #fbfdff 0%, #ffffff 100%);
+  overflow: hidden;
 }
 
 .filter-section {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
   padding-bottom: 16px;
   border-bottom: 1px solid #e8e8e8;
   margin-bottom: 20px;
@@ -205,11 +409,8 @@ const handleSearch = () => {
   border-color: #1a73e8;
 }
 
-.search-input::placeholder {
-  color: #bfbfbf;
-}
-
-.search-btn {
+.search-btn,
+.retry-btn {
   height: 32px;
   padding: 0 20px;
   background: #1a73e8;
@@ -221,7 +422,8 @@ const handleSearch = () => {
   transition: background 0.2s;
 }
 
-.search-btn:hover {
+.search-btn:hover,
+.retry-btn:hover {
   background: #1557b0;
 }
 
@@ -229,6 +431,7 @@ const handleSearch = () => {
   min-height: 400px;
 }
 
+.loading-state,
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -237,16 +440,31 @@ const handleSearch = () => {
   padding: 80px 0;
 }
 
-.empty-icon {
-  font-size: 64px;
-  color: #d9d9d9;
-  margin-bottom: 16px;
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #f0f0f0;
+  border-top-color: #1a73e8;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 12px;
 }
 
+.loading-text,
 .empty-text {
   font-size: 14px;
   color: #999;
   margin: 0;
+}
+
+.empty-icon {
+  font-size: 52px;
+  color: #d9d9d9;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .orders-list {
@@ -263,7 +481,7 @@ const handleSearch = () => {
 }
 
 .order-item:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .order-header {
@@ -292,14 +510,14 @@ const handleSearch = () => {
   background: #f6ffed;
 }
 
-.order-status.pending {
+.order-status.unpaid {
   color: #faad14;
   background: #fffbe6;
 }
 
-.order-status.cancelled {
-  color: #999;
-  background: #f5f5f5;
+.order-status.closed {
+  color: #94a3b8;
+  background: #f1f5f9;
 }
 
 .order-body {
@@ -307,6 +525,7 @@ const handleSearch = () => {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 16px;
+  gap: 16px;
 }
 
 .order-info {
@@ -317,13 +536,13 @@ const handleSearch = () => {
   font-size: 15px;
   font-weight: 500;
   color: #333;
-  margin: 0 0 8px 0;
+  margin: 0 0 8px;
 }
 
 .order-desc {
   font-size: 13px;
   color: #666;
-  margin: 0 0 8px 0;
+  margin: 0 0 8px;
 }
 
 .order-time {
@@ -376,5 +595,66 @@ const handleSearch = () => {
 .btn-detail:hover {
   color: #1a73e8;
   border-color: #1a73e8;
+}
+
+.detail-content {
+  padding: 8px 0;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
+  font-size: 14px;
+  color: #999;
+}
+
+.detail-value {
+  font-size: 14px;
+  color: #333;
+  text-align: right;
+}
+
+.detail-value.mono {
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+}
+
+.detail-value.price {
+  font-size: 16px;
+  font-weight: 600;
+  color: #f5222d;
+}
+
+@media (max-width: 768px) {
+  .page-header,
+  .filter-section,
+  .order-body {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .header-pay-btn,
+  .search-input {
+    width: 100%;
+  }
+
+  .search-box {
+    flex-direction: column;
+  }
+
+  .order-footer {
+    justify-content: flex-start;
+  }
 }
 </style>

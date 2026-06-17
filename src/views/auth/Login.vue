@@ -39,7 +39,8 @@
   </AuthPageLayout>
 </template>
 
-<script setup lang="ts">import { ref } from 'vue'
+<script setup lang="ts">
+import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import AuthPageLayout from '@/components/auth/AuthPageLayout.vue'
@@ -47,13 +48,17 @@ import { login } from '@/api/member'
 import { useCurrentUserStore } from '@/stores/currentUser'
 import { useMemberProfileStore } from '@/stores/memberProfile'
 import { useTokenStore } from '@/stores/token'
-import { useLoginDataLoader } from '@/composables/useLoginDataLoader'
 import type { LoginParams, LoginSessionData } from '@/types/member'
+import {
+  isActiveMember,
+  isApprovedPendingPayment,
+  isPendingApplication,
+  isPendingAudit
+} from '@/utils/membershipPayment'
 
 const router = useRouter()
 const route = useRoute()
 const tokenStore = useTokenStore()
-const loginDataLoader = useLoginDataLoader()
 
 const account = ref('')
 const password = ref('')
@@ -66,16 +71,21 @@ function buildParams(): LoginParams {
   return { phone: t, password: pwd }
 }
 
-// 根据用户状态显示不同的提示信息
-function showStatusMessage(status: number | null | undefined, memberType?: string) {
+function showStatusMessage(auditStatus: string | null | undefined, memberType?: string) {
   const typeText = memberType === '单位会员' ? '单位会员' : '个人会员'
 
-  if (status === 0) {
-    ElMessage.info(`您的${typeText}申请正在审核中，您可以查看和修改个人信息。`)
-  } else if (status === 1) {
-    ElMessage.warning(`审核已通过，请缴纳会费以成为正式${typeText}。`)
-  } else if (status === 2) {
-    ElMessage.success(`欢迎回来，正式${typeText}！`)
+  if (isPendingApplication(auditStatus) || isPendingAudit(auditStatus)) {
+    ElMessage.info(`您的${typeText}申请正在审核中，您可以查看和修改会员资料。`)
+    return
+  }
+
+  if (isApprovedPendingPayment(auditStatus)) {
+    ElMessage.warning(`您的${typeText}审核已通过，请尽快完成缴费。`)
+    return
+  }
+
+  if (isActiveMember(auditStatus)) {
+    ElMessage.success(`欢迎回来，${typeText}状态正常。`)
   }
 }
 
@@ -123,16 +133,39 @@ async function onSubmit() {
       const currentUserStore = useCurrentUserStore()
       const memberProfileStore = useMemberProfileStore()
 
-      // 5. 获取完整的会员信息（包括个人基本信息、教育经历、工作经历、委员会信息）
-      if (Number.isFinite(userId) && userId > 0) {
-        await loginDataLoader.loadFullProfile(userId)
+      // 5. 获取完整的会员信息（根据会员类型调用不同接口）
+      if (Number.isFinite(memberId) && memberId > 0) {
+        // 根据会员类型加载对应的详细信息
+        if (memberType === '单位会员') {
+          // 单位会员：调用单位会员详情接口
+          try {
+            const { getCompanyMemberInfo } = await import('@/api/memberArchive')
+            const companyRes = await getCompanyMemberInfo(memberId)
+            if (companyRes.success && companyRes.data) {
+              memberProfileStore.setCompanyMemberInfo(companyRes.data)
+            }
+          } catch (error) {
+            console.warn('加载单位会员信息失败:', error)
+          }
+        } else {
+          // 个人会员：调用个人会员详情接口
+          try {
+            const { getMemberSingleByMemberId } = await import('@/api/memberArchive')
+            const personalRes = await getMemberSingleByMemberId(memberId)
+            if (personalRes.success && personalRes.data) {
+              memberProfileStore.setMemberSingle(personalRes.data)
+            }
+          } catch (error) {
+            console.warn('加载个人会员信息失败:', error)
+          }
+        }
       }
 
       // 6. 获取用户基本信息（用于显示用户名等）
       await currentUserStore.fetchCurrentUser(true)
 
-      // 7. 根据用户状态和会员类型显示提示
-      showStatusMessage(currentUserStore.profile?.status, memberType)
+      // 7. 根据会员 auditStatus 显示提示
+      showStatusMessage(memberProfileStore.auditStatus, memberType)
 
       ElMessage.success(res.message || '登录成功')
       const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''

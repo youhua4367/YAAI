@@ -61,7 +61,9 @@ export function createPaymentOrder(body: {
   memberId: number
   paymentMethod: string
 }): Promise<Result<OrderCreateVO>> {
-  return request.post('/member/payment/create', body)
+  return request.post('/member/payment/create', null, {
+    params: body
+  })
 }
 
 /** 订单列表 `GET /member/order/list?memberId=` */

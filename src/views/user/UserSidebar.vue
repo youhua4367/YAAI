@@ -7,19 +7,18 @@
       </div>
 
       <ul class="nav-menu">
-        <li 
-          v-for="item in menuItems" 
+        <li
+          v-for="item in menuItems"
           :key="item.key"
-          :class="{ active: currentTab === item.key }" 
-          @click="handleTabClick(item.key)"
+          :class="{ active: currentTab === item.key }"
           :title="isCollapsed ? item.label : ''"
+          @click="handleTabClick(item.key)"
         >
           <div class="active-pill"></div>
           <span class="nav-icon">
             <i :class="item.icon"></i>
           </span>
           <span class="nav-text" v-show="!isCollapsed">{{ item.label }}</span>
-          
           <i class="fas fa-chevron-right arrow-icon" v-show="!isCollapsed"></i>
         </li>
       </ul>
@@ -30,63 +29,55 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useMemberPermissions } from '@/composables/useMemberPermissions'
-import {useMemberProfile} from "@/composables/useMemberProfile.ts";
+import { useMemberProfile } from '@/composables/useMemberProfile'
 
 interface Props {
-  currentTab: string;
-  isCollapsed: boolean;
+  currentTab: string
+  isCollapsed: boolean
 }
 
-const props = defineProps<Props>();
+defineProps<Props>()
 
 const emit = defineEmits<{
-  (e: 'update:currentTab', tab: string): void;
-}>();
+  (e: 'update:currentTab', tab: string): void
+}>()
 
 const { canViewOrders } = useMemberPermissions()
 const { memberType } = useMemberProfile()
+
 const isCompanyMember = computed(() => memberType.value === 'company')
-// 根据权限和会员类型过滤菜单项
 const menuItems = computed(() => {
   const items = [
     { key: 'home', label: '首页', icon: 'fas fa-th-large' }
   ]
 
-  // 只有待缴费或已缴费会员可以查看订单
   if (canViewOrders.value) {
     items.push({ key: 'orders', label: '我的缴费', icon: 'fas fa-wallet' })
   }
 
-  // 根据会员类型显示不同的菜单标签
   if (isCompanyMember.value) {
     items.push({ key: 'profile', label: '单位会员', icon: 'fas fa-building' })
   } else {
     items.push({ key: 'profile', label: '个人会员', icon: 'fas fa-user-circle' })
   }
 
-  // TODO: 正式会员可以添加更多菜单项
-  // if (hasFullAccess.value) {
-  //   items.push({ key: 'committee', label: '委员会', icon: 'fas fa-users' })
-  // }
-
   return items
 })
 
-
-const handleTabClick = (tab: string) => {
-  emit('update:currentTab', tab);
-};
+function handleTabClick(tab: string) {
+  emit('update:currentTab', tab)
+}
 </script>
 
 <style scoped>
 .member-sidebar {
   --primary: #0c4da2;
   --primary-light: #f0f7ff;
-  --text-main: #1e293b; /* Slate 800 */
-  --text-muted: #64748b; /* Slate 500 */
-  
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+
   background: #ffffff;
-  border-radius: 16px; /* 统一圆角 */
+  border-radius: 16px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
   border: 1px solid #edf2f7;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -94,12 +85,10 @@ const handleTabClick = (tab: string) => {
   overflow: hidden;
 }
 
-/* 折叠状态宽度 */
 .member-sidebar.is-collapsed {
   width: 72px;
 }
 
-/* 标题样式 */
 .nav-header {
   padding: 24px 20px 16px;
   display: flex;
@@ -121,7 +110,6 @@ const handleTabClick = (tab: string) => {
   letter-spacing: 0.5px;
 }
 
-/* 菜单列表 */
 .nav-menu {
   margin: 0;
   padding: 8px 12px;
@@ -140,7 +128,6 @@ const handleTabClick = (tab: string) => {
   transition: all 0.3s ease;
 }
 
-/* 选中项的左侧指示器（胶囊型） */
 .active-pill {
   position: absolute;
   left: 0;
@@ -157,9 +144,8 @@ const handleTabClick = (tab: string) => {
   height: 20px;
 }
 
-/* 悬浮与激活态 */
 .nav-menu li:hover {
-  background-color: var(--bg-subtle, #f8fafc);
+  background-color: #f8fafc;
   color: var(--primary);
 }
 
@@ -169,7 +155,6 @@ const handleTabClick = (tab: string) => {
   font-weight: 600;
 }
 
-/* 图标与文字 */
 .nav-icon {
   font-size: 18px;
   width: 24px;
@@ -188,7 +173,6 @@ const handleTabClick = (tab: string) => {
   flex: 1;
 }
 
-/* 右侧小箭头 */
 .arrow-icon {
   font-size: 10px;
   opacity: 0;
@@ -201,7 +185,6 @@ const handleTabClick = (tab: string) => {
   transform: translateX(0);
 }
 
-/* 折叠状态下的特殊处理 */
 .is-collapsed .nav-menu li {
   justify-content: center;
   padding: 14px 0;
@@ -212,6 +195,6 @@ const handleTabClick = (tab: string) => {
 }
 
 .is-collapsed .active-pill {
-  left: 4px; /* 折叠时稍微往里一点 */
+  left: 4px;
 }
 </style>

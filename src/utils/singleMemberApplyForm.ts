@@ -1,5 +1,5 @@
 import type { MemberEducationRequest, MemberWorkExperienceRequest, SingleMemberApplyRequest } from '@/types/member'
-import type { CommitteeMemberVO, MemberEducationVO, MemberSingleVO, MemberWorkExperienceVO } from '@/types/userCenter'
+import type { CommitteeMemberVO, MemberEducationVO, MemberSingleInfoVO, MemberWorkExperienceVO } from '@/types/userCenter'
 
 /** 提交申请时的默认入会元数据（与后端联调约定，可按接口调整） */
 export const DEFAULT_SINGLE_APPLY_META = {
@@ -106,17 +106,21 @@ function trimOrUndefined(value: string | undefined): string | undefined {
 }
 
 export function memberSingleToApplyForm(
-  vo?: MemberSingleVO | null,
-  education: MemberEducationVO[] = [],
-  work: MemberWorkExperienceVO[] = [],
+  vo?:   MemberSingleInfoVO | null,
+  education?: MemberEducationVO[] | null,
+  work?: MemberWorkExperienceVO[] | null,
   committeeMember?: CommitteeMemberVO | null
 ): PersonalMemberApplyFormModel {
   const empty = createEmptyPersonalMemberApplyForm()
   if (!vo) return empty
 
+  // 如果是新的 MemberSingleInfoVO 类型，从其中提取教育经历和工作经历
+  const eduList = education ?? (vo as MemberSingleInfoVO).educationList ?? []
+  const workList = work ?? (vo as MemberSingleInfoVO).workExperienceList ?? []
+
   return {
     ...empty,
-    committeeId: committeeMember?.committeeId ?? null,
+    committeeId: committeeMember?.committeeId ?? (vo as MemberSingleInfoVO).committeeId ?? null,
     name: vo.name ?? '',
     gender: vo.gender ?? '',
     idCardType: vo.idCardType ?? '',
@@ -145,27 +149,27 @@ export function memberSingleToApplyForm(
     areaCode: vo.areaCode ?? '',
     recommender: vo.recommender ?? '',
     img: vo.img ?? '',
-    educationExperiences: education.length
-      ? education.map((item) => ({
-          degree: item.degree ?? '',
-          school: item.school ?? '',
-          major: item.major ?? '',
-          startDate: item.startDate?.slice(0, 10) ?? '',
-          endDate: item.endDate?.slice(0, 10) ?? '',
-          sortOrder: item.sortOrder ?? 0
-        }))
+    educationExperiences: eduList.length
+      ? eduList.map((item) => ({
+        degree: item.degree ?? '',
+        school: item.school ?? '',
+        major: item.major ?? '',
+        startDate: item.startDate?.slice(0, 10) ?? '',
+        endDate: item.endDate?.slice(0, 10) ?? '',
+        sortOrder: item.sortOrder ?? 0
+      }))
       : [createEmptyEducation()],
-    workExperiences: work.length
-      ? work.map((item) => ({
-          company: item.company ?? '',
-          department: item.department ?? '',
-          jobTitle: item.jobTitle ?? '',
-          workContent: item.workContent ?? '',
-          status: item.status ?? '在职',
-          startDate: item.startDate?.slice(0, 10) ?? '',
-          endDate: item.endDate?.slice(0, 10) ?? '',
-          sortOrder: item.sortOrder ?? 0
-        }))
+    workExperiences: workList.length
+      ? workList.map((item) => ({
+        company: item.company ?? '',
+        department: item.department ?? '',
+        jobTitle: item.jobTitle ?? '',
+        workContent: item.workContent ?? '',
+        status: item.status ?? '在职',
+        startDate: item.startDate?.slice(0, 10) ?? '',
+        endDate: item.endDate?.slice(0, 10) ?? '',
+        sortOrder: item.sortOrder ?? 0
+      }))
       : [createEmptyWorkExperience()]
   }
 }

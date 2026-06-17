@@ -40,11 +40,7 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import PersonalMemberApplyForm from '@/components/user/PersonalMemberApplyForm.vue'
 import CompanyMemberInfoDisplay from '@/components/user/CompanyMemberInfoDisplay.vue'
-import {
-  getMemberEducationByMemberId,
-  getMemberWorkExperienceByMemberId,
-  getCommitteeMemberByMemberId
-} from '@/api/memberArchive'
+import { getCommitteeMemberByMemberId } from '@/api/memberArchive'
 import { useMemberProfile } from '@/composables/useMemberProfile'
 import { useLoginDataLoader } from '@/composables/useLoginDataLoader'
 import { useTokenStore } from '@/stores/token'
@@ -78,13 +74,14 @@ async function loadExtraProfile() {
     return
   }
   try {
-    const [eduRes, workRes, committeeRes] = await Promise.all([
-      getMemberEducationByMemberId(id),
-      getMemberWorkExperienceByMemberId(id),
-      getCommitteeMemberByMemberId(id)
-    ])
-    educationList.value = eduRes.success && eduRes.data ? eduRes.data : []
-    workList.value = workRes.success && workRes.data ? workRes.data : []
+    // 从 memberSingle 中获取教育经历和工作经历
+    if (memberSingle.value) {
+      educationList.value = memberSingle.value.educationList || []
+      workList.value = memberSingle.value.workExperienceList || []
+    }
+
+    // 只获取委员会成员信息
+    const committeeRes = await getCommitteeMemberByMemberId(id)
     committeeMember.value = committeeRes.success ? committeeRes.data : null
   } catch {
     educationList.value = []
