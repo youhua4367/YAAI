@@ -74,6 +74,10 @@ const { displayName } = useMemberProfile()
   color: var(--primary-color);
 }
 
+.topbar-left a + a {
+  margin-left: 16px;
+}
+
 .topbar-left .divider {
   margin: 0 12px;
   color: #ccc;
